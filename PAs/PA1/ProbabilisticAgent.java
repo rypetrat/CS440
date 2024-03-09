@@ -41,15 +41,41 @@ public class ProbabilisticAgent extends Agent {
         double[][] probMatrix = this.probabilitiesMatrix(game, numHits, numUnkw);
 
         // visual representation that prints out the probability matrix, also returns an arraylist of the adjacent coords and prints that out
-        ArrayList<Coordinate> goodGuesses = this.visRep(game, probMatrix);    
-        System.out.print(goodGuesses);
+        ArrayList<Integer[]> hitAdj = this.visRep(game, probMatrix); 
+        System.out.print("Coordinates Adj to hits: ");   
+        for (Integer[] x : hitAdj) {
+            System.out.print("(");
+            int z = 0;
+            for (int y : x) {
+                if (z % 2 == 0) {
+                    System.out.print(y + ", ");
+                }
+                else {
+                    System.out.print(y);
+                }
+                z +=1 ;
+            }
+            System.out.print(") ");
+        }
         System.out.println();
 
+        // call the nextshot function to generate the coordinate that should be fired at next
+        Coordinate fire2 = this.nextShot(game, probMatrix, hitAdj);
+        System.out.println("Highest probability shot: " + fire2.toString());
 
+        // for separation spacing
+        System.out.println();
+
+        // if its not at the default OOB coord that i set then it gets fuckin nuked hell yea
+        if (!fire2.equals(new Coordinate(100, 100))) {
+            return fire2;
+        }
 
 
 
         // all of the following should be removed as it is for the implemented random agent that will be phased out
+
+
         // picks random value that is in bounds
         int col = random.nextInt(game.getGameConstants().getNumCols());
         int row = random.nextInt(game.getGameConstants().getNumRows());
@@ -67,6 +93,10 @@ public class ProbabilisticAgent extends Agent {
         // shot to be fired
         return fire;
     }
+
+
+
+
 
     public double[][] probabilitiesMatrix(final GameView game, int hits, int unknown) {
         // calculates the number of remaining coordinates that can result in a hit, ultimately this will also be phased out by improved logic but its here now
@@ -104,7 +134,7 @@ public class ProbabilisticAgent extends Agent {
 
                     // set the hitAdjacent coordinates, ensuring it is in bounds and not to overwrite any hits, misses, or sinks
                     if (game.isInBounds(x+1, y) && probMat[x+1] [y] != -1.0 && probMat[x+1][y] != 1.0 && probMat[x+1][y] != -2.0) {
-                        probMat[x+1][y] = 0.75;
+                        probMat[x+1][y] = 0.75; //placeholder values
                     }
                     if (game.isInBounds(x-1, y) && probMat[x-1][y] != -1.0 && probMat[x-1][y] != 1.0 && probMat[x-1][y] != -2.0) {
                         probMat[x-1][y] = 0.75;
@@ -136,6 +166,72 @@ public class ProbabilisticAgent extends Agent {
         return probMat;
     }
 
+
+
+
+    public Coordinate nextShot(final GameView game, double[][] probMat, ArrayList<Integer[]> adjacents) {
+        // init the max value that has been see so far
+        double bestProb = -1.0;
+        Coordinate bestShot = new Coordinate(100, 100);
+
+        // if there are no hitAdj coords then dont do shit
+        if (adjacents.size() != 0) {
+            // will pick the proability with the highest chance of being a hit
+            for (Integer[] x : adjacents) {
+                if (probMat[x[0]][x[1]] > bestProb) {
+                    bestProb = probMat[x[0]][x[1]];
+                    bestShot = new Coordinate(x[0], x[1]);
+                }
+            }
+        }
+        return bestShot;
+    }
+
+    
+
+
+    public ArrayList<Integer[]> visRep(final GameView game,  double[][] probMatrix) {
+        ArrayList<Integer[]> close = new ArrayList<>();
+
+        // nested for loop that will go over the probabilities as they are generated from probabilityMatrix for ease of viewing (can switch out to exact prob values)
+        for(int y = 0; y < probMatrix.length; y++) {
+            for(int x = 0; x < probMatrix[0].length; x++) {
+                // a probability of 1.0 in a coordinate denotes a hit 
+                if (probMatrix[x][y] == 1.0) {
+                    System.out.print("|  " + "HIT" + "  |");
+                    //System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
+                }
+                // a probability of -1.0 in a coordinate denotes a miss
+                else if (probMatrix[x][y] == -1.0) {
+                    System.out.print("| " + "MISS " + " |");
+                    //System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
+                }
+                // a probability of -2.0 in a coordinate denotes a sink
+                else if (probMatrix[x][y] == -2.0) {
+                    System.out.print("| " + "SUNK " + " |");
+                    //System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
+                }
+                // a probability between 0.5 and 1.0 in a coordinate denotes a hit adjacent
+                else if (probMatrix[x][y] >= 0.5 && probMatrix[x][y] < 1.0) {
+                    System.out.print("| " + "**** " + " |");
+                    //System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
+                    close.add(new Integer[] {x, y});
+                }
+                // otherwise we have not shot at that coordinate
+                else {
+                    System.out.print("| " + "UNKW " + " |");
+                    //System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
+                }
+            }
+            System.out.println();
+        }
+        // returns the arraylist of values that are hit adjacent
+        return close;
+    }
+
+    
+    
+    
     public int[] shotTrack(final GameView game) {
         // init tracking variables
         int numHits = 0, numMiss = 0, numSunk = 0, numUnkw = 0;
@@ -165,47 +261,6 @@ public class ProbabilisticAgent extends Agent {
         int[] vals = {numHits, numMiss, numSunk, numUnkw};
         return vals;
     }
-
-    public ArrayList<Coordinate> visRep(final GameView game,  double[][] probMatrix) {
-        ArrayList<Coordinate> close = new ArrayList<>();
-
-        // nested for loop that will go over the probabilities as they are generated from probabilityMatrix for ease of viewing (can switch out to exact prob values)
-        for(int y = 0; y < probMatrix.length; y++) {
-            for(int x = 0; x < probMatrix[0].length; x++) {
-                // a probability of 1.0 in a coordinate denotes a hit 
-                if (probMatrix[x][y] == 1.0) {
-                    System.out.print("|  " + "HIT" + "  |");
-                    //System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
-                }
-                // a probability of -1.0 in a coordinate denotes a miss
-                else if (probMatrix[x][y] == -1.0) {
-                    System.out.print("| " + "MISS " + " |");
-                    //System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
-                }
-                // a probability of -2.0 in a coordinate denotes a sink
-                else if (probMatrix[x][y] == -2.0) {
-                    System.out.print("| " + "SUNK " + " |");
-                    //System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
-                }
-                // a probability between 0.5 and 1.0 in a coordinate denotes a hit adjacent
-                else if (probMatrix[x][y] >= 0.5 && probMatrix[x][y] < 1.0) {
-                    System.out.print("| " + "**** " + " |");
-                    //System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
-                    close.add(new Coordinate(x, y));
-                }
-                // otherwise we have not shot at that coordinate
-                else {
-                    System.out.print("| " + "UNKW " + " |");
-                    //System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
-                }
-            }
-            System.out.println();
-        }
-        // returns the arraylist of values that are hit adjacent
-        return close;
-    }
-
-
 
 
 
