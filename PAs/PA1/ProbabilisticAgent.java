@@ -63,8 +63,27 @@ public class ProbabilisticAgent extends Agent {
         Coordinate fire2 = this.nextShot(game, probMatrix, hitAdj);
         System.out.println("Highest probability shot: " + fire2.toString());
 
+
+        // calculates the probability of a coordinate containing a hit sqaure
+        //System.out.println("coordProb: ");
+        ArrayList<Integer> perm = coordPermutations(game, probMatrix, new Coordinate(5, 5));
+
+        for (int z : perm) {
+            System.out.print(z + " ");
+        }
+
+
         // for separation spacing
         System.out.println();
+
+
+        System.out.println();
+        // delete this shite later
+        // if (1 + 1 == 2) {
+        //     return new Coordinate(0, 0);
+        // }
+        
+        
 
         // if its not at the default OOB coord that i set then it gets fuckin nuked hell yea
         if (!fire2.equals(new Coordinate(100, 100))) {
@@ -132,18 +151,23 @@ public class ProbabilisticAgent extends Agent {
 
                     // HEY DIPSHIT IF WE ENCOUNTER A HIT THAT HAS BEEN UNREGISTERED PREVIOUSLY WE CAN JUST BREAK AND RETURN SINCE WE ALREADY HAVE THE VALUES WE SHOULD TARGET
 
+
                     // set the hitAdjacent coordinates, ensuring it is in bounds and not to overwrite any hits, misses, or sinks
                     if (game.isInBounds(x+1, y) && probMat[x+1] [y] != -1.0 && probMat[x+1][y] != 1.0 && probMat[x+1][y] != -2.0) {
-                        probMat[x+1][y] = 0.75; //placeholder values
+                        probMat[x+1][y] = 0.75;
+                        //System.out.println(probMat[x+1][y]);
                     }
                     if (game.isInBounds(x-1, y) && probMat[x-1][y] != -1.0 && probMat[x-1][y] != 1.0 && probMat[x-1][y] != -2.0) {
                         probMat[x-1][y] = 0.75;
+                        //System.out.println(probMat[x-1][y]);
                     }
                     if (game.isInBounds(x, y+1) && probMat[x][y+1] != -1.0 && probMat[x][y+1] != 1.0 && probMat[x][y+1] != -2.0) {
                         probMat[x][y+1] = 0.75;
+                        //System.out.println(probMat[x][y+1]);
                     }
                     if (game.isInBounds(x, y-1) && probMat[x][y-1] != -1.0 && probMat[x][y-1] != 1.0 && probMat[x][y-1] != -2.0) {
                         probMat[x][y-1] = 0.75;
+                        //System.out.println(probMat[x][y-1]);
                     }
                 }
                 else if (game.getEnemyBoardView()[x][y].toString().equals("MISS")) {
@@ -185,6 +209,163 @@ public class ProbabilisticAgent extends Agent {
             }
         }
         return bestShot;
+    }
+
+
+    // this is gonna run like ass but can def be smooted out for better runtime but im on a plane and cant be fucked at the moment (its not as bad as i thought but can still be cleaned up if need be)
+    public ArrayList<Integer> coordPermutations(final GameView game,  double[][] probMatrix, Coordinate coord) {
+        // gets the curent coordinates x and y position
+        int xPos = coord.getXCoordinate();
+        int yPos = coord.getYCoordinate();
+
+        ArrayList<Integer> perms = new ArrayList<Integer>();
+
+        // for each ship size
+        for (int size = 2; size <= 5; size++) {
+            // init total x and y valid coords values
+            int totalX = 0;
+            int totalY = 0;
+
+            // init min x and y values
+            int minX = 0;
+            int minY = 0;
+
+            int maxX = 0;
+            int maxY = 0;
+
+            // positve x direction
+            int posX = 0;
+            for (int a = 1; a < size; a++) {
+                if (game.isInBounds(xPos+a, yPos)) {
+                    if (game.getEnemyBoardView()[xPos+a][yPos].toString().equals("UNKNOWN")) {
+                        // if we detect an unknown coordinate then we add to the range of valid possible coordinates
+                        posX += 1;
+                        totalX += 1;
+                    }
+                    else if (game.getEnemyBoardView()[xPos+a][yPos].toString().equals("HIT")) {
+                        // if we detect a hit further on (just more good evidence than if we dont know whats goin on) (implementing later)
+                        posX += 1;
+                        totalX += 1;
+                    }
+                    else {
+                        // if we detect a MISS or SINK break out
+                        break;
+                    }
+                }
+            }
+
+            // negative x direction
+            int negX = 0;
+            for (int b = 1; b < size; b++) {
+                if (game.isInBounds(xPos-b, yPos)) {
+                    if (game.getEnemyBoardView()[xPos-b][yPos].toString().equals("UNKNOWN")) {
+                        // if we detect an unknown coordinate then we add to the range of valid possible coordinates
+                        negX += 1;
+                        totalX += 1;
+                    }
+                    else if (game.getEnemyBoardView()[xPos-b][yPos].toString().equals("HIT")) {
+                        // if we detect a hit further on (just more good evidence than if we dont know whats goin on) (implementing later)
+                        negX += 1;
+                        totalX += 1;
+                    }
+                    else {
+                        // if we detect a MISS or SINK break out
+                        break;
+                    }
+                }
+            }
+
+            // positive y direction
+            int posY = 0;
+            for (int c = 1; c < size; c++) {
+                if (game.isInBounds(xPos, yPos+c)) {
+                    if (game.getEnemyBoardView()[xPos][yPos+c].toString().equals("UNKNOWN")) {
+                        // if we detect an unknown coordinate then we add to the range of valid possible coordinates
+                        posY += 1;
+                        totalY += 1;
+                    }
+                    else if (game.getEnemyBoardView()[xPos][yPos+c].toString().equals("HIT")) {
+                        // logic for if we detect a hit further on (just more good evidence than if we dont know whats goin on) (implementing later)
+                        posY += 1;
+                        totalY += 1;
+                    }
+                    else {
+                        // if we detect a MISS or SINK break out
+                        break;
+                    }
+                }
+            }
+
+            // negative y direction
+            int negY = 0;
+            for (int d = 1; d < size; d++) {
+                if (game.isInBounds(xPos, yPos-d)) {
+                    if (game.getEnemyBoardView()[xPos][yPos-d].toString().equals("UNKNOWN")) {
+                        // if we detect an unknown coordinate then we add to the range of valid possible coordinates
+                        negY += 1;
+                        totalY += 1;
+                    }
+                    else if (game.getEnemyBoardView()[xPos][yPos-d].toString().equals("HIT")) {
+                        // logic for if we detect a hit further on (just more good evidence than if we dont know whats goin on) (implementing later)
+                        negY += 1;
+                        totalY += 1;
+                    }
+                    else {
+                        // if we detect a MISS or SINK break out
+                        break;
+                    }
+                }
+            }
+            
+            // determines the min side length for x directions
+            if (posX > negX) {
+                minX = negX;
+            }
+            else {
+                minX = posX;
+            }
+            
+            // determines the min side length for y direction
+            if (posY > negY) {
+                minY = negY;
+            }
+            else {
+                minY = posY;
+            }
+
+            // determines the number of permutations for x direction
+            int xPermutations = 0;
+            if (totalX >= size-1) {
+                if (size == 5) {
+                    xPermutations = (totalX) - 3;
+                }
+                else if (posX == negX && size == 4 && posX == 2) {
+                    xPermutations = 2;
+                }
+                else {
+                    xPermutations = minX + 1;
+                }
+            }
+
+            // determines the number of permutations for y direction
+            int yPermutations = 0;
+            if (totalY >= size-1) {
+                if (size == 5) {
+                    yPermutations = (totalY) - 3;
+                }
+                else if (posY == negY && size == 4 && posY == 2) {
+                    yPermutations = 2;
+                }
+                else {
+                    yPermutations = minY + 1;
+                }
+            }
+
+            // printout and reset of totalx and totaly
+            //System.out.println("Ship size: " + size + "    totalX: " + totalX + "    totalY: " + totalY);
+            perms.add(yPermutations + xPermutations);
+        }
+        return perms;
     }
 
     
