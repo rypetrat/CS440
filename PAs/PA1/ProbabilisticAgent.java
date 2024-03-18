@@ -17,7 +17,7 @@ import edu.bu.battleship.game.EnemyBoard;
 import edu.bu.battleship.game.EnemyBoard.Outcome;
 import edu.bu.battleship.utils.Coordinate;
 
-
+//suggestions add a list that has what's ben taken out of ships and shits (actually no it was 3 am when i wrote this i'm fuckig retarded)
 public class ProbabilisticAgent extends Agent {
 
     public ProbabilisticAgent(String name) {
@@ -182,7 +182,7 @@ public class ProbabilisticAgent extends Agent {
                 else if (probMat[x][y] == 0.0) {
                     // gonna want to make this have a call to another function that handles all the logic of what could be at this coordinate, hopefully wont be too complex (i jinxed it ik)
 
-                    probMat[x][y] = (double)remainingShipCoords / (double)unknown;
+                    probMat[x][y] = wtf(game);
                 }
             }
         }
@@ -210,7 +210,7 @@ public class ProbabilisticAgent extends Agent {
         }
         return bestShot;
     }
-
+    //Jood what does unknown coordinate mean
 
     // this is gonna run like ass but can def be smooted out for better runtime but im on a plane and cant be fucked at the moment (its not as bad as i thought but can still be cleaned up if need be)
     public ArrayList<Integer> coordPermutations(final GameView game,  double[][] probMatrix, Coordinate coord) {
@@ -368,7 +368,44 @@ public class ProbabilisticAgent extends Agent {
         return perms;
     }
 
+public double wtf(final GameView game) {
+    int size=game.getGameConstants().getNumCols()*game.getGameConstants().getNumCols();
+    double slay=0.0;
+    for(int y = 0; y < game.getGameConstants().getNumCols(); y++) {
+        for(int x = 0; x < game.getGameConstants().getNumRows(); x++) {
+            ArrayList<Integer> perm = coordPermutations(game, probMatrix, new Coordinate(x, y));
+            for(int kingRyan = 0; x <perm.size(); kingRyan++) {
+                
+                
+                if(kingRyan==0 )
+                {
+                    slay+=perm.get(kingRyan)*1/size;
+                }
+                else if(kingRyan==1 )
+                {
+                    slay+=perm.get(kingRyan)*2/size;
+                }
+                else if(kingRyan==2 )
+                {
+                    slay+=perm.get(kingRyan)*3/size;
+                }
+
+                else if(kingRyan==3 )
+                {
+                    slay+=perm.get(kingRyan)*4/size;
+                }
+
+                
+
+            }
+
+        }
     
+    }
+
+
+return slay;
+}
 
 
     public ArrayList<Integer[]> visRep(final GameView game,  double[][] probMatrix) {
@@ -412,7 +449,7 @@ public class ProbabilisticAgent extends Agent {
 
     
     
-    
+    //returns the num of hits misses and shits
     public int[] shotTrack(final GameView game) {
         // init tracking variables
         int numHits = 0, numMiss = 0, numSunk = 0, numUnkw = 0;
