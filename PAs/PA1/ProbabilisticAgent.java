@@ -66,7 +66,10 @@ public class ProbabilisticAgent extends Agent {
 
         // calculates the probability of a coordinate containing a hit sqaure
         //System.out.println("coordProb: ");
-        ArrayList<Integer> perm = coordPermutations(game, probMatrix, new Coordinate(5, 5));
+
+        
+        ArrayList<Integer> perm = coordPermutations(game, new Coordinate(0, 0));
+
 
         for (int z : perm) {
             System.out.print(z + " ");
@@ -80,7 +83,7 @@ public class ProbabilisticAgent extends Agent {
         System.out.println();
         // delete this shite later
         // if (1 + 1 == 2) {
-        //     return new Coordinate(0, 0);
+        //     return new Coordinate(4, 0);
         // }
         
         
@@ -118,26 +121,6 @@ public class ProbabilisticAgent extends Agent {
 
 
     public double[][] probabilitiesMatrix(final GameView game, int hits, int unknown) {
-        // calculates the number of remaining coordinates that can result in a hit, ultimately this will also be phased out by improved logic but its here now
-        int remainingShipCoords = 1 + -hits;
-        for(ShipType key : game.getEnemyShipTypeToNumRemaining().keySet()) {
-            if (key.toString().equals("AIRCRAFT_CARRIER")) {
-                // afc is 5 coordinates long
-                remainingShipCoords += 5;
-            }
-            else if (key.toString().equals("BATTLESHIP")) {
-                // bship is 4 coordinates long
-                remainingShipCoords += 4;
-            }
-            else if (key.toString().equals("DESTROYER")) {
-                // destroy is 3 coordinates long
-                remainingShipCoords += 3;
-            }
-            else if (key.toString().equals("SUBMARINE") || key.toString().equals("PATROL_BOAT")) {
-                // sub and pboat are 2 coordinates long
-                remainingShipCoords += 2;
-            }
-        }
         // generate the matrix that will hold all the probability values for each coordinate
         double[][] probMat = new double[game.getGameConstants().getNumRows()][game.getGameConstants().getNumCols()];
 
@@ -154,19 +137,19 @@ public class ProbabilisticAgent extends Agent {
 
                     // set the hitAdjacent coordinates, ensuring it is in bounds and not to overwrite any hits, misses, or sinks
                     if (game.isInBounds(x+1, y) && probMat[x+1] [y] != -1.0 && probMat[x+1][y] != 1.0 && probMat[x+1][y] != -2.0) {
-                        probMat[x+1][y] = 0.75;
+                        probMat[x+1][y] = 0.85;
                         //System.out.println(probMat[x+1][y]);
                     }
                     if (game.isInBounds(x-1, y) && probMat[x-1][y] != -1.0 && probMat[x-1][y] != 1.0 && probMat[x-1][y] != -2.0) {
-                        probMat[x-1][y] = 0.75;
+                        probMat[x-1][y] = 0.85;
                         //System.out.println(probMat[x-1][y]);
                     }
                     if (game.isInBounds(x, y+1) && probMat[x][y+1] != -1.0 && probMat[x][y+1] != 1.0 && probMat[x][y+1] != -2.0) {
-                        probMat[x][y+1] = 0.75;
+                        probMat[x][y+1] = 0.85;
                         //System.out.println(probMat[x][y+1]);
                     }
                     if (game.isInBounds(x, y-1) && probMat[x][y-1] != -1.0 && probMat[x][y-1] != 1.0 && probMat[x][y-1] != -2.0) {
-                        probMat[x][y-1] = 0.75;
+                        probMat[x][y-1] = 0.85;
                         //System.out.println(probMat[x][y-1]);
                     }
                 }
@@ -180,9 +163,29 @@ public class ProbabilisticAgent extends Agent {
                 }
                 // if the value has not been previously changed by the hitAdjacent logic then update to unknown value for that coordinate
                 else if (probMat[x][y] == 0.0) {
-                    // gonna want to make this have a call to another function that handles all the logic of what could be at this coordinate, hopefully wont be too complex (i jinxed it ik)
+                    double slay = 0.0;
+                    //System.out.println("hi");
+                    ArrayList<Integer> perm = coordPermutations(game, new Coordinate(x, y));
 
-                    probMat[x][y] = (double)remainingShipCoords / (double)unknown;
+                    for(int z = 0; z < perm.size(); z++) {
+                        if(z==0)
+                        {
+                            slay += (double)perm.get(z) * (1.0 / (double)(game.getGameConstants().getNumRows() * game.getGameConstants().getNumCols()));
+                        }
+                        else if(z==1)
+                        {
+                            slay += (double)perm.get(z) * (2.0 / (double)(game.getGameConstants().getNumRows() * game.getGameConstants().getNumCols()));
+                        }
+                        else if(z==2)
+                        {
+                            slay += (double)perm.get(z) * (3.0 / (double)(game.getGameConstants().getNumRows() * game.getGameConstants().getNumCols()));
+                        }
+                        else if(z==3)
+                        {
+                            slay += (double)perm.get(z) * (4.0 / (double)(game.getGameConstants().getNumRows() * game.getGameConstants().getNumCols()));
+                        }
+                    }
+                    probMat[x][y] = slay;
                 }
             }
         }
@@ -197,6 +200,9 @@ public class ProbabilisticAgent extends Agent {
         // init the max value that has been see so far
         double bestProb = -1.0;
         Coordinate bestShot = new Coordinate(100, 100);
+
+        // pick the highest probability coordinate when no adjacents
+
 
         // if there are no hitAdj coords then dont do shit
         if (adjacents.size() != 0) {
@@ -213,7 +219,7 @@ public class ProbabilisticAgent extends Agent {
 
 
     // this is gonna run like ass but can def be smooted out for better runtime but im on a plane and cant be fucked at the moment (its not as bad as i thought but can still be cleaned up if need be)
-    public ArrayList<Integer> coordPermutations(final GameView game,  double[][] probMatrix, Coordinate coord) {
+    public ArrayList<Integer> coordPermutations(final GameView game, Coordinate coord) {
         // gets the curent coordinates x and y position
         int xPos = coord.getXCoordinate();
         int yPos = coord.getYCoordinate();
@@ -229,9 +235,6 @@ public class ProbabilisticAgent extends Agent {
             // init min x and y values
             int minX = 0;
             int minY = 0;
-
-            int maxX = 0;
-            int maxY = 0;
 
             // positve x direction
             int posX = 0;
@@ -368,7 +371,6 @@ public class ProbabilisticAgent extends Agent {
         return perms;
     }
 
-    
 
 
     public ArrayList<Integer[]> visRep(final GameView game,  double[][] probMatrix) {
@@ -379,29 +381,29 @@ public class ProbabilisticAgent extends Agent {
             for(int x = 0; x < probMatrix[0].length; x++) {
                 // a probability of 1.0 in a coordinate denotes a hit 
                 if (probMatrix[x][y] == 1.0) {
-                    System.out.print("|  " + "HIT" + "  |");
-                    //System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
+                    //System.out.print("|  " + "HIT" + "  |");
+                    System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
                 }
                 // a probability of -1.0 in a coordinate denotes a miss
                 else if (probMatrix[x][y] == -1.0) {
-                    System.out.print("| " + "MISS " + " |");
-                    //System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
+                    //System.out.print("| " + "MISS " + " |");
+                    System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
                 }
                 // a probability of -2.0 in a coordinate denotes a sink
                 else if (probMatrix[x][y] == -2.0) {
-                    System.out.print("| " + "SUNK " + " |");
-                    //System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
+                    //System.out.print("| " + "SUNK " + " |");
+                    System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
                 }
                 // a probability between 0.5 and 1.0 in a coordinate denotes a hit adjacent
-                else if (probMatrix[x][y] >= 0.5 && probMatrix[x][y] < 1.0) {
-                    System.out.print("| " + "**** " + " |");
-                    //System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
+                else if (probMatrix[x][y] > 0.8 && probMatrix[x][y] < 1.0) {
+                    //System.out.print("| " + "**** " + " |");
+                    System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
                     close.add(new Integer[] {x, y});
                 }
                 // otherwise we have not shot at that coordinate
                 else {
-                    System.out.print("| " + "UNKW " + " |");
-                    //System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
+                    //System.out.print("| " + "UNKW " + " |");
+                    System.out.print("| " + String.format("%.3g", probMatrix[x][y]) + " |");
                 }
             }
             System.out.println();
