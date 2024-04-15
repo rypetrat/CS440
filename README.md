@@ -34,4 +34,4 @@ Running:
 
 javac -cp "./lib/*;." @tetris.srcs
 
-javac -cp "./lib/*;." @tetris.srcs
+java -cp "./lib/*;." edu.bu.tetris.Main
