@@ -35,3 +35,17 @@ Running:
 javac -cp "./lib/*;." @tetris.srcs
 
 java -cp "./lib/*;." edu.bu.tetris.Main
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+Functions To Complete:
+
+- getQFunctionInput(GameView, Mino): Convert both objects into row vector for input to the NN with some fixed size, should contain all necessary information for the NN to give a representative q-value rank {OUTPUT: vector of GameView and Mino of some fixed size}
+
+- getReward(GameView): Reward function, calculate reward for being in that state of the game, bad state -> small/negative whereas good state-> large/positive {OUTPUT: reward value based on GameView}
+
+- initQFunction(inputVector): Build actual NN, can only build feed-forward, should expect fixed size of input vector from getQ, should output an unbounded scalar q-value {OUTPUT: scalar q-value based on the inputVector}
+
+- shouldExplore: Agent curiosity that encourages the agent to ignore the policy to search for unique experiences, return True when it should ignore the policy to find a unique experience and False otherwise {OUTPUT: True/False for if it will follow the policy}
+
+- getExplorationMove: How we can generate an action that should lead to a new experience {OUTPUT: some sense of curiosity that can lead to previously undiscovered experience}
