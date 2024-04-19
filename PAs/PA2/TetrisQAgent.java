@@ -77,18 +77,52 @@ public class TetrisQAgent
         a tetris game midway through play, what properties would you look for?
      */
     @Override
-    public Matrix getQFunctionInput(final GameView game,
-                                    final Mino potentialAction)
-    {
+    public Matrix getQFunctionInput(final GameView game, final Mino potentialAction) {
         Matrix flattenedImage = null;
-        try
-        {
-            flattenedImage = game.getGrayscaleImage(potentialAction).flatten();
-        } catch(Exception e)
-        {
+        Matrix gameMatrix = null;
+    
+        try {
+            // Get the grayscale image of the game board
+            gameMatrix = game.getGrayscaleImage(potentialAction);
+    
+            // Flatten the image to get a row-vector
+            flattenedImage  = gameMatrix.flatten();
+    
+            // collect data on additional features 
+            int numOpenSpaces = 0;
+            int numTakenSpaces = 0;
+            int numConsiderSpaces = 0;
+            int numHoles = 0;
+            int maxHeight = 0;
+    
+            // Calculate additional features
+            for (int x = 0; x < gameMatrix.getShape().getNumRows(); x++) {
+                boolean holeFound = false;
+                for (int y = 0; y < gameMatrix.getShape().getNumCols(); y++) {
+                    if (gameMatrix.get(x, y) == 0.0) {
+                        numOpenSpaces += 1;
+                        if (holeFound) {
+                            numHoles += 1;
+                        }
+                    } else if (gameMatrix.get(x, y) == 0.5) {
+                        numTakenSpaces += 1;
+                        holeFound = true;
+                    } else {
+                        numConsiderSpaces += 1;
+                        holeFound = true;
+                    }
+                }
+                if (!holeFound) {
+                    maxHeight = Math.max(maxHeight, x);
+                }
+            }
+            
+    
+        } catch (Exception e) {
             e.printStackTrace();
             System.exit(-1);
         }
+    
         return flattenedImage;
     }
 
@@ -194,6 +228,8 @@ public class TetrisQAgent
     @Override
     public double getReward(final GameView game)
     {
+        System.out.print("Reward value: ");
+        System.out.println(game.getScoreThisTurn());
         return game.getScoreThisTurn();
     }
 
