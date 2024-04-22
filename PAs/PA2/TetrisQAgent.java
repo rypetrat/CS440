@@ -228,9 +228,78 @@ public class TetrisQAgent
     @Override
     public double getReward(final GameView game)
     {
+        
+        Board b= game.board.getBoard();
+        
+        int high = highest(b);//gets highest point
+
+        int empts= empties(b, high); //gets all the empties under the highest point
+        int reward= -(empts+10*high); //didn't know what weights to put but multiplied highest point by 10 
+        //cause it's really bad to be higher acording to an aricle i read teehee
+
+        //bro idk wtf score this turn i like do i update it here with my calculated reward
+
+
+
+
+
+
+
         System.out.print("Reward value: ");
         System.out.println(game.getScoreThisTurn());
         return game.getScoreThisTurn();
+    }
+
+
+    public int empties(final Board b, int high)
+    {
+    int counter = 0;
+
+        for (int c = 0; c < high; c++) {// can i access num rows??
+           
+            for (int r = 0; r < b.NUM_ROWS; r++) {
+
+                if (!b.isCoordinateOccupied(r,c) ) {
+                    counter+=1;
+                   
+                   
+                } 
+            }
+
+
+
+        }
+
+        return counter;
+    
+    }
+
+
+
+    
+
+
+    public int highest(final Board b)
+    {
+    int highestY = -1;
+
+        for (int c = 0; c < b.NUM_COLS; c++) {// can i access num rows??
+           
+            for (int r = 0; r < b.NUM_ROWS; r++) {
+
+                if (b.isCoordinateOccupied(r,c) ) {
+                    highestY = Math.max(highestY, c);
+                    break;
+                   
+                } 
+            }
+
+
+
+        }
+
+        return highestY;
+    
     }
 
 }
