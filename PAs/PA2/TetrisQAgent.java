@@ -31,6 +31,7 @@ public class TetrisQAgent
 {
 
     public static final double EXPLORATION_PROB = 0.05;
+    public static int NUM_EXPLORED = 1;
 
     private Random random;
 
@@ -80,49 +81,56 @@ public class TetrisQAgent
     public Matrix getQFunctionInput(final GameView game, final Mino potentialAction) {
         Matrix flattenedImage = null;
         Matrix gameMatrix = null;
-    
+
+        Matrix featureMatrix = Matrix.zeros(1, 7);
+
+        // init features data (can always add or remove certain features to see how it performs w/wo them)
+        int numHoles = 0; // number of empty spaces that have a filled space above them
+        int numFloaing = 0; // number of blocks that do not have a block directly below them
+        int maxHeightBefore = 21; // height of the tallest column without accounting for the current mino placement
+        int maxHeightAfter = 100; // height of the tallest column accounting for the current mino placement
+        int heightDelta = 0; // difference between hightAfter and hightBefore
+        int bumpiness = 0; // sum of the absolute differences in height between adjacent columns
+        double filledDensity = 0.0; // ratio of filled to total spaces on the board
+ 
         try {
             // Get the grayscale image of the game board
             gameMatrix = game.getGrayscaleImage(potentialAction);
-    
-            // Flatten the image to get a row-vector
-            flattenedImage  = gameMatrix.flatten();
-    
-            // collect data on additional features 
-            int numOpenSpaces = 0;
-            int numTakenSpaces = 0;
-            int numConsiderSpaces = 0;
-            int numHoles = 0;
-            int maxHeight = 0;
-    
-            // Calculate additional features
-            for (int x = 0; x < gameMatrix.getShape().getNumRows(); x++) {
-                boolean holeFound = false;
-                for (int y = 0; y < gameMatrix.getShape().getNumCols(); y++) {
-                    if (gameMatrix.get(x, y) == 0.0) {
-                        numOpenSpaces += 1;
-                        if (holeFound) {
-                            numHoles += 1;
-                        }
-                    } else if (gameMatrix.get(x, y) == 0.5) {
-                        numTakenSpaces += 1;
-                        holeFound = true;
-                    } else {
-                        numConsiderSpaces += 1;
-                        holeFound = true;
-                    }
-                }
-                if (!holeFound) {
-                    maxHeight = Math.max(maxHeight, x);
-                }
-            }
-            
-    
+            flattenedImage  = gameMatrix.flatten(); //temp delete later
+
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(-1);
         }
+
+        // Calculate features data
+        for (int y = 2; y < gameMatrix.getShape().getNumRows(); y++ ) {
+            for (int x = 0; x < gameMatrix.getShape().getNumCols(); x++) {
+                //System.out.println(gameMatrix.get(y, x) + ", Coord: " + x + " " + y);
+
+                // checking already placed blocks
+                if(gameMatrix.get(y, x) == 0.5) {
+                    if (maxHeightBefore == 21) {
+                        maxHeightBefore = y - 2;
+                    }
+                }
+            }
+        }
+        System.out.println("max: " + maxHeightBefore);
+
+        // set hightDelta value
+        heightDelta =  maxHeightAfter - maxHeightBefore;
+
+        // set values in the return matrix to the collected feature data values
+        featureMatrix.set(0, 0, numHoles);
+        featureMatrix.set(0, 1, numFloaing);
+        featureMatrix.set(0, 2, maxHeightBefore);
+        featureMatrix.set(0, 3, maxHeightAfter);
+        featureMatrix.set(0, 4, heightDelta);
+        featureMatrix.set(0, 5, bumpiness);
+        featureMatrix.set(0, 6, filledDensity);
     
+        // return features data
         return flattenedImage;
     }
 
@@ -142,10 +150,24 @@ public class TetrisQAgent
      * strategy here.
      */
     @Override
-    public boolean shouldExplore(final GameView game,
-                                 final GameCounter gameCounter)
-    {
-        return this.getRandom().nextDouble() <= EXPLORATION_PROB;
+    public boolean shouldExplore(final GameView game, final GameCounter gameCounter) {
+
+        int turnIdx = (int)gameCounter.getCurrentMoveIdx();
+        int gameIdx = (int)gameCounter.getCurrentGameIdx();
+
+        // fine tune the following based on the total number of training games
+        double INITIAL_EXPLORATION_RATE = 0.6 - ((gameIdx * 0.01) + (NUM_EXPLORED * 0.01)); 
+        double FINAL_EXPLORATION_RATE = 0.01;
+        int EXPLORATION_DECAY_STEPS = 1500;
+
+        double explore = Math.max(FINAL_EXPLORATION_RATE, INITIAL_EXPLORATION_RATE - turnIdx * (INITIAL_EXPLORATION_RATE - FINAL_EXPLORATION_RATE) / EXPLORATION_DECAY_STEPS);
+        // System.out.println("exploration value: " + explore + ", Number of Explorations: " + NUM_EXPLORED);
+
+        if (this.getRandom().nextDouble() <= explore) { 
+            NUM_EXPLORED += 1;
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -229,7 +251,6 @@ public class TetrisQAgent
     public double getReward(final GameView game) {
         Board b = game.getBoard();
         int emptyBelow = 0;
-        int totalBelow = 0;
         Coordinate highest = null;
         Boolean startEmpty = false;
         double reward = 0.0;
@@ -243,10 +264,6 @@ public class TetrisQAgent
                 else if (b.isCoordinateOccupied(x, y) == false && startEmpty == true) {
                     // count number of occupied coordinates below the highest
                     emptyBelow += 1;
-                    totalBelow += 1;
-                }
-                else if (startEmpty == true) {
-                    totalBelow += 1;
                 }
             }
             if (highest != null) {
@@ -254,24 +271,13 @@ public class TetrisQAgent
             }
         }
 
+        // change to be a more accurate representation of the actual reward, reward should be negative and a more negative value should equate to a worse move
         if (highest != null) {
-            double occupied = totalBelow - emptyBelow;
-            //System.out.println("occupied: " + occupied);
-
             double highestY = (22 - highest.getYCoordinate());
-            //System.out.println("highest Y: " + highestY);
-            
-            System.out.println("Highest occupied Y-coord: " + highestY + ", empty spaces below: " + emptyBelow);
-            reward = -1.0 / ((highestY) + (emptyBelow)) + game.getScoreThisTurn();
-            // ((10*(highest.getYCoordinate())) + (double)(totalBelow - emptyBelow)) 
-            System.out.println("Reward value: " + reward);
+            // System.out.println("Highest occupied Y-coord: " + highestY + ", empty spaces below: " + emptyBelow);
+            reward = (-1.0 / ((highestY) + (emptyBelow))) + game.getScoreThisTurn();
+            // System.out.println("Reward value: " + reward);
         }
-        
-        //cause it's really bad to be higher acording to an aricle i read teehee
-
-        //bro idk wtf score this turn i like do i update it here with my calculated reward
-        // System.out.print("Reward value: ");
-        // System.out.println(game.getScoreThisTurn());
         return reward;
     }
 }
