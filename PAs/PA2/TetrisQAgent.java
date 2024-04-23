@@ -6,7 +6,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
-
+import edu.bu.battleship.utils.Coordinate;
 // JAVA PROJECT IMPORTS
 import edu.bu.tetris.agents.QAgent;
 import edu.bu.tetris.agents.TrainerAgent.GameCounter;
@@ -226,80 +226,52 @@ public class TetrisQAgent
      * signal that is less sparse, you should see your model optimize this reward over time.
      */
     @Override
-    public double getReward(final GameView game)
-    {
-        
-        Board b= game.board.getBoard();
-        
-        int high = highest(b);//gets highest point
+    public double getReward(final GameView game) {
+        Board b = game.getBoard();
+        int emptyBelow = 0;
+        int totalBelow = 0;
+        Coordinate highest = null;
+        Boolean startEmpty = false;
+        double reward = 0.0;
 
-        int empts= empties(b, high); //gets all the empties under the highest point
-        int reward= -(empts+10*high); //didn't know what weights to put but multiplied highest point by 10 
+        for (int y = 2; y < 22; y++ ) {
+            for (int x = 0; x < 10; x++) {
+                if (b.isCoordinateOccupied(x, y) && startEmpty == false) { 
+                    // get the highest coordinate position
+                    highest = new Coordinate(x, y);
+                }
+                else if (b.isCoordinateOccupied(x, y) == false && startEmpty == true) {
+                    // count number of occupied coordinates below the highest
+                    emptyBelow += 1;
+                    totalBelow += 1;
+                }
+                else if (startEmpty == true) {
+                    totalBelow += 1;
+                }
+            }
+            if (highest != null) {
+                startEmpty = true;
+            }
+        }
+
+        if (highest != null) {
+            double occupied = totalBelow - emptyBelow;
+            //System.out.println("occupied: " + occupied);
+
+            double highestY = (22 - highest.getYCoordinate());
+            //System.out.println("highest Y: " + highestY);
+            
+            System.out.println("Highest occupied Y-coord: " + highestY + ", empty spaces below: " + emptyBelow);
+            reward = -1.0 / ((highestY) + (emptyBelow)) + game.getScoreThisTurn();
+            // ((10*(highest.getYCoordinate())) + (double)(totalBelow - emptyBelow)) 
+            System.out.println("Reward value: " + reward);
+        }
+        
         //cause it's really bad to be higher acording to an aricle i read teehee
 
         //bro idk wtf score this turn i like do i update it here with my calculated reward
-
-
-
-
-
-
-
-        System.out.print("Reward value: ");
-        System.out.println(game.getScoreThisTurn());
-        return game.getScoreThisTurn();
+        // System.out.print("Reward value: ");
+        // System.out.println(game.getScoreThisTurn());
+        return reward;
     }
-
-
-    public int empties(final Board b, int high)
-    {
-    int counter = 0;
-
-        for (int c = 0; c < high; c++) {// can i access num rows??
-           
-            for (int r = 0; r < b.NUM_ROWS; r++) {
-
-                if (!b.isCoordinateOccupied(r,c) ) {
-                    counter+=1;
-                   
-                   
-                } 
-            }
-
-
-
-        }
-
-        return counter;
-    
-    }
-
-
-
-    
-
-
-    public int highest(final Board b)
-    {
-    int highestY = -1;
-
-        for (int c = 0; c < b.NUM_COLS; c++) {// can i access num rows??
-           
-            for (int r = 0; r < b.NUM_ROWS; r++) {
-
-                if (b.isCoordinateOccupied(r,c) ) {
-                    highestY = Math.max(highestY, c);
-                    break;
-                   
-                } 
-            }
-
-
-
-        }
-
-        return highestY;
-    
-    }
-
 }
