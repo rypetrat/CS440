@@ -45,19 +45,21 @@ public class TetrisQAgent
     public Random getRandom() { return this.random; }
 
     @Override
-    public Model initQFunction()
-    {
+    public Model initQFunction() {
         // build a single-hidden-layer feedforward network
         // this example will create a 3-layer neural network (1 hidden layer)
-        // in this example, the input to the neural network is the
-        // image of the board unrolled into a giant vector
-        final int inputSize = 7;
-        final int hiddenDim = 2 * inputSize;
-        final int outDim = 1;
+
+        final int inputSize = 8; // should equal the size of the input row-vector
+        final int hiddenDim = (int)Math.pow(inputSize, 2); // increasing this value will allow for more complex patterns to be learned but will also increase the risk of overfitting
+        final int outDim = 1; // always keep at 1
 
         Sequential qFunction = new Sequential();
         qFunction.add(new Dense(inputSize, hiddenDim));
+
+        // can experiment switching between the following to see which performs the best or maybe even multiple, i think Tahn is our best bet tho
         qFunction.add(new Tanh());
+        //qFunction.add(new ReLU()); 
+        //qFunction.add(new Sigmoid()); 
         qFunction.add(new Dense(hiddenDim, outDim));
 
         return qFunction;
@@ -80,30 +82,31 @@ public class TetrisQAgent
      */
     @Override
     public Matrix getQFunctionInput(final GameView game, final Mino potentialAction) {
-        Matrix gameMatrix = null;
+        Matrix gameMatrix = null; // init matrix var
 
         // init feature matrix that will be returned with all the features of importance
-        Matrix featureMatrix = Matrix.zeros(1, 7);
+        Matrix featureMatrix = Matrix.zeros(1, 8);
 
         // init features data (can add or remove certain features to see how it performs w/wo them)
-        int numHoles = 0; // number of empty spaces that have a filled space above them
+        int numHoles = 0; // number of empty spaces that have a filled space below them
 
         int maxHeightBefore = 22; // height of the tallest column without accounting for the current mino placement, gives distance from the top
         boolean mHBSet = false;
+
         int maxHeightAfter = 22; // height of the tallest column accounting for the current mino placement, gives distance from the top
         boolean mHASet = false;
+
         int heightDelta = 0; // gives the delta in max height for the current mino placement
         
         int bumpiness = 0; // sum of the absolute differences in height between adjacent columns
         Integer[] colHeights = new Integer[10];
 
-        double filledDensity = 0.0; // ratio of filled spaces to total spaces on the board below the top of the highest block
-        int totalSpaces = 0;
-        boolean highestFound = false;
+        int emptyBelow = 0; // counts number of empty spaces below the highest placed mino for each column
+
+        int lowestEmptyY = -1; // y value of the lowest empty coordinate on the board
 
         int minoType = -1; // gets the type of the mino to be placed next in int form
         Mino.MinoType curMino = potentialAction.getType(); 
-        //System.out.println(curMino);
 
         try {
             // Get the grayscale image of the game board
@@ -113,9 +116,10 @@ public class TetrisQAgent
             System.exit(-1);
         }
 
-        // Calculate features data
+        // parses through grayscale image matrix to collect feature data
         for (int y = 0; y < gameMatrix.getShape().getNumRows(); y++ ) {
             for (int x = 0; x < gameMatrix.getShape().getNumCols(); x++) {
+
                 // already placed piece coordinate
                 if (gameMatrix.get(y, x) == 0.5) {
                     // sets maxHeightBefore
@@ -126,11 +130,6 @@ public class TetrisQAgent
                     // sets max height for this column for bumpiness
                     if (colHeights[x] == null) {
                         colHeights[x] = y;
-                    }
-                    // iterates the number of total and filled spaces for filledDensity
-                    if (highestFound) {
-                        filledDensity += 1; 
-                        totalSpaces += 1;
                     }
                 }
 
@@ -145,11 +144,6 @@ public class TetrisQAgent
                     if (colHeights[x] == null) {
                         colHeights[x] = y;
                     }
-                    // iterates the number of total and filled spaces for filledDensity
-                    if (highestFound) {
-                        filledDensity += 1; 
-                        totalSpaces += 1;
-                    }
                 }
 
                 // empty coordinate
@@ -158,14 +152,16 @@ public class TetrisQAgent
                     if (y > 0 && (gameMatrix.get(y-1, x) == 1.0 || gameMatrix.get(y-1, x) == 0.5)) {
                         numHoles += 1;
                     }
-                    // iterates the number of total spaces for filledDensity
-                    if (highestFound) {
-                        totalSpaces += 1;
+                    // iterates empty below when some cord above the current empty cord is filled
+                    if(colHeights[x] != null) {
+                        emptyBelow += 1;
                     }
+                    // set value of lowestEmptyY
+                    if (lowestEmptyY < y) {
+                        lowestEmptyY = y;
+                    }
+                    
                 }
-            }
-            if (!highestFound && (mHBSet || mHASet)) {
-                highestFound = true;
             }
         }
 
@@ -215,18 +211,16 @@ public class TetrisQAgent
             minoType = 6;
         }
         
-        // set filledDensity value
-        filledDensity = filledDensity / (double)totalSpaces;
-    
         // prints for each feature data point
+        //System.out.println("numHoles: " + numHoles);
         //System.out.println("maxB: " + maxHeightBefore);
         //System.out.println("maxA: " + maxHeightAfter);
         //System.out.println("heightDelta: " + heightDelta);
-        //System.out.println("numHoles: " + numHoles);
         //System.out.println("bumpiness: " + bumpiness);
-        //System.out.println("filledDensity: " + filledDensity);
+        //System.out.println("emptyBelow: " + emptyBelow);
+        //System.out.println("lowestEmptyY: " + lowestEmptyY);
         //System.out.println("minoType: " + minoType);
-        //System.out.println(gameMatrix);
+        
 
         // set values in the return matrix to the collected feature data values
         featureMatrix.set(0, 0, numHoles);
@@ -234,11 +228,13 @@ public class TetrisQAgent
         featureMatrix.set(0, 2, maxHeightAfter);
         featureMatrix.set(0, 3, heightDelta);
         featureMatrix.set(0, 4, bumpiness);
-        featureMatrix.set(0, 5, filledDensity);
-        featureMatrix.set(0, 6, minoType);
+        featureMatrix.set(0, 5, emptyBelow);
+        featureMatrix.set(0, 6, lowestEmptyY);
+        featureMatrix.set(0, 7, minoType);
 
-        System.out.println(featureMatrix);
-        
+        //System.out.println(featureMatrix);
+        //System.out.println(gameMatrix);
+
         // return features data
         return featureMatrix;
     }
@@ -260,20 +256,23 @@ public class TetrisQAgent
      */
     @Override
     public boolean shouldExplore(final GameView game, final GameCounter gameCounter) {
-
+        // gets turn and game ID's
         int turnIdx = (int)gameCounter.getCurrentMoveIdx();
         int gameIdx = (int)gameCounter.getCurrentGameIdx();
 
-        // fine tune the following based on the total number of training games
-        double INITIAL_EXPLORATION_RATE = 0.6 - ((gameIdx * 0.01) + (NUM_EXPLORED * 0.01)); 
-        double FINAL_EXPLORATION_RATE = 0.01;
-        int EXPLORATION_DECAY_STEPS = 1500;
+        // fine tune for testing
+        double INITIAL_EXPLORATION_RATE = 0.6 - ((gameIdx * 0.01));  // scale the gameIdx's coef to total number of training games
+        double FINAL_EXPLORATION_RATE = 0.01; // explore rate will not go lower than this value
+        int EXPLORATION_DECAY_STEPS = 500; // higher number = slower decay
 
+        // calculates explore rate value
         double explore = Math.max(FINAL_EXPLORATION_RATE, INITIAL_EXPLORATION_RATE - turnIdx * (INITIAL_EXPLORATION_RATE - FINAL_EXPLORATION_RATE) / EXPLORATION_DECAY_STEPS);
-        //System.out.println("exploration value: " + explore + ", Number of Explorations: " + NUM_EXPLORED);
+        // System.out.println("exploration value: " + explore);
 
+        // generates random number between 0-1 and if less than our explore value we ignore the policy
         if (this.getRandom().nextDouble() <= explore) { 
             NUM_EXPLORED += 1;
+            // System.out.println("Policy ignored.");
             return true;
         }
         return false;
@@ -291,6 +290,7 @@ public class TetrisQAgent
     @Override
     public Mino getExplorationMove(final GameView game)
     {
+        // god help us idk, will random guess, honestly doesnt seem like too bad a plan on its own
         int randIdx = this.getRandom().nextInt(game.getFinalMinoPositions().size());
         return game.getFinalMinoPositions().get(randIdx);
     }
@@ -358,35 +358,112 @@ public class TetrisQAgent
      */
     @Override
     public double getReward(final GameView game) {
-        Board b = game.getBoard();
-        int emptyBelow = 0;
-        Coordinate highest = null;
-        Boolean startEmpty = false;
-        double reward = 0.0;
+        Board b = game.getBoard(); // current gamestate board
+        double reward = 0.0; // final reward value for the state
 
-        for (int y = 2; y < 22; y++ ) {
+        int highestOccdY = 22; // y value of the highest occupied coordinate on the board
+        Coordinate highestCord = null;
+        Boolean highestFound = false;
+
+        int lowestEmptyY = -1; // y value of the lowest empty coordinate on the board
+        
+        int emptyBelow = 0; // counts number of empty spaces below the highest placed mino for each column
+        Integer[] colMax = new Integer[10];
+
+        int numFloating = 0; // counts number of occupied spaces with an empty space below them
+
+        int bumpiness = 0; // sum of the absolute differences in height between adjacent columns
+
+        // parse through board to collect feature data
+        for (int y = 0; y < 22; y++) {
             for (int x = 0; x < 10; x++) {
-                if (b.isCoordinateOccupied(x, y) && startEmpty == false) { 
+
+                // occupied coordinate
+                if (b.isCoordinateOccupied(x, y)) { 
                     // get the highest coordinate position
-                    highest = new Coordinate(x, y);
+                    if (highestFound == false) {
+                        highestCord = new Coordinate(x, y);
+                        highestFound = true;
+                    }
+                    // sets the max for the current column
+                    if (colMax[x] == null) {
+                        colMax[x] = y;
+                    }
+                    // count number of floating coordindates
+                    if (y < 21 && !b.isCoordinateOccupied(x, y+1)) {
+                        numFloating += 1;
+                    }
+
                 }
-                else if (b.isCoordinateOccupied(x, y) == false && startEmpty == true) {
-                    // count number of occupied coordinates below the highest
-                    emptyBelow += 1;
+
+                // empty coordinate
+                else if (!b.isCoordinateOccupied(x, y)) {
+                    // check if current column has an occupied space in a higher row
+                    if(colMax[x] != null) {
+                        emptyBelow += 1;
+                    }
+                    // set value of lowestEmptyY
+                    if (lowestEmptyY < y) {
+                        lowestEmptyY = y;
+                    }
                 }
-            }
-            if (highest != null) {
-                startEmpty = true;
+
+                
             }
         }
 
-        // change to be a more accurate representation of the actual reward, reward should be negative and a more negative value should equate to a worse move
-        if (highest != null) {
-            double highestY = (20 - highest.getYCoordinate());
-            //System.out.println("Highest occupied Y-coord: " + highestY + ", empty spaces below: " + emptyBelow);
-            reward = (-1.0 / ((highestY) + (emptyBelow))) + game.getScoreThisTurn();
-            //System.out.println("Reward value: " + reward);
+        // set value of highestY
+        if (highestCord != null) {
+            highestOccdY = highestCord.getYCoordinate();
         }
+
+        // set bumpiness value
+        for (int i = 0; i < 9; i++) {
+            int cur = 22;
+            if (colMax[i] != null) {
+                cur = colMax[i];
+            }
+
+            int next = 22;
+            if (colMax[i+1] != null) {
+                next = colMax[i+1];
+            }
+            bumpiness += Math.abs(cur - next);
+        }
+
+        // prints for each feature data point
+        //System.out.println("scoreThisTurn: " + game.getScoreThisTurn());
+        System.out.println("highestOccdY: " + highestOccdY);
+        //System.out.println("lowestEmptyY: " + lowestEmptyY);
+        //System.out.println("numFloating: " + numFloating);
+        //System.out.println("emptyBelow: " + emptyBelow);
+        //System.out.println("bumpiness: " + bumpiness);
+        
+        
+
+        // scalar values associated with each value, and their roughly estimated normalization min/max 
+        //scoreThisTurn (high prio) Scalar: 0.25, min: 0 || max: ?(1)
+        //highestOccdY (high prio)  Scalar: 0.25, min: 2 || max: 22
+        //lowestEmptyY (high prio)  Scalar: 0.25, min: 2 || max: 21
+        //numFloating (med prio)    Scalar: 0.1,  min: 0 || max: 85
+        //emptyBelow (med prio)     Scalar: 0.1,  min: 0 || max: 170
+        //bumpiness (low prio)      Scalar: 0.05, min: 0 || max: 180
+
+        // normalize each feature
+        double normScore = (double)game.getScoreThisTurn() / 1;
+        double normHigh = (double)highestOccdY / 22;
+        double normLow = (double)lowestEmptyY / 21;
+        double normFloat = (double)numFloating / 85;
+        double normEmpty = (double)emptyBelow / 170;
+        double normBump = (double)bumpiness / 180;
+
+        // still doesnt correctly compute, should begin with low negative value and as it builds worse based on our features should become more negative, with better moves making it less negative
+        // i think certain features should subtract from reward as they are good if they are high/low
+        reward = -1 * ((0.25 * normScore) + (0.25 * normHigh) + (0.25 * normLow) + (0.1 * normFloat) + (0.1 * normEmpty) + (0.05 * normBump));
+
+        System.out.println("Reward value: " + reward);
+        System.out.println();
+
         return reward;
     }
 }
