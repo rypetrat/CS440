@@ -5,6 +5,7 @@ package src.pas.tetris.agents;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
+import java.util.Arrays;
 
 import edu.bu.battleship.utils.Coordinate;
 // JAVA PROJECT IMPORTS
@@ -50,12 +51,12 @@ public class TetrisQAgent
         // this example will create a 3-layer neural network (1 hidden layer)
         // in this example, the input to the neural network is the
         // image of the board unrolled into a giant vector
-        final int numPixelsInImage = Board.NUM_ROWS * Board.NUM_COLS;
-        final int hiddenDim = 2 * numPixelsInImage;
+        final int inputSize = 6;
+        final int hiddenDim = 2 * inputSize;
         final int outDim = 1;
 
         Sequential qFunction = new Sequential();
-        qFunction.add(new Dense(numPixelsInImage, hiddenDim));
+        qFunction.add(new Dense(inputSize, hiddenDim));
         qFunction.add(new Tanh());
         qFunction.add(new Dense(hiddenDim, outDim));
 
@@ -82,56 +83,138 @@ public class TetrisQAgent
         Matrix flattenedImage = null;
         Matrix gameMatrix = null;
 
-        Matrix featureMatrix = Matrix.zeros(1, 7);
+        // init feature matrix that will be returned with all the features of importance
+        Matrix featureMatrix = Matrix.zeros(1, 6);
 
-        // init features data (can always add or remove certain features to see how it performs w/wo them)
+        // init features data (can add or remove certain features to see how it performs w/wo them)
         int numHoles = 0; // number of empty spaces that have a filled space above them
-        int numFloaing = 0; // number of blocks that do not have a block directly below them
-        int maxHeightBefore = 21; // height of the tallest column without accounting for the current mino placement
-        int maxHeightAfter = 100; // height of the tallest column accounting for the current mino placement
-        int heightDelta = 0; // difference between hightAfter and hightBefore
+
+        int maxHeightBefore = 22; // height of the tallest column without accounting for the current mino placement, gives distance from the top
+        boolean mHBSet = false;
+        int maxHeightAfter = 22; // height of the tallest column accounting for the current mino placement, gives distance from the top
+        boolean mHASet = false;
+        int heightDelta = 0; // gives the delta in max height for the current mino placement
+        
         int bumpiness = 0; // sum of the absolute differences in height between adjacent columns
-        double filledDensity = 0.0; // ratio of filled to total spaces on the board
- 
+        Integer[] colHeights = new Integer[10];
+
+        double filledDensity = 0.0; // ratio of filled spaces to total spaces on the board below the top of the highest block
+        int totalSpaces = 0;
+        boolean highestFound = false;
+        
+
         try {
             // Get the grayscale image of the game board
             gameMatrix = game.getGrayscaleImage(potentialAction);
             flattenedImage  = gameMatrix.flatten(); //temp delete later
-
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(-1);
         }
 
         // Calculate features data
-        for (int y = 2; y < gameMatrix.getShape().getNumRows(); y++ ) {
+        for (int y = 0; y < gameMatrix.getShape().getNumRows(); y++ ) {
             for (int x = 0; x < gameMatrix.getShape().getNumCols(); x++) {
-                //System.out.println(gameMatrix.get(y, x) + ", Coord: " + x + " " + y);
+                // already placed piece coordinate
+                if (gameMatrix.get(y, x) == 0.5) {
+                    // sets maxHeightBefore
+                    if (mHBSet == false) {
+                        maxHeightBefore = y;
+                        mHBSet = true;
+                    }
+                    // sets max height for this column for bumpiness
+                    if (colHeights[x] == null) {
+                        colHeights[x] = y;
+                    }
+                    // iterates the number of total and filled spaces for filledDensity
+                    if (highestFound) {
+                        filledDensity += 1; 
+                        totalSpaces += 1;
+                    }
+                }
 
-                // checking already placed blocks
-                if(gameMatrix.get(y, x) == 0.5) {
-                    if (maxHeightBefore == 21) {
-                        maxHeightBefore = y - 2;
+                // current piece placement coordinate
+                if (gameMatrix.get(y, x) == 1.0) {
+                    // sets maxHeightAfter
+                    if (mHASet == false) {
+                        maxHeightAfter = y;
+                        mHASet = true;
+                    }
+                    // sets max height for this column for bumpiness
+                    if (colHeights[x] == null) {
+                        colHeights[x] = y;
+                    }
+                    // iterates the number of total and filled spaces for filledDensity
+                    if (highestFound) {
+                        filledDensity += 1; 
+                        totalSpaces += 1;
+                    }
+                }
+
+                // empty coordinate
+                if (gameMatrix.get(y, x) == 0.0) {
+                    // iterates numHoles when coordinate above is filled
+                    if (y > 0 && (gameMatrix.get(y-1, x) == 1.0 || gameMatrix.get(y-1, x) == 0.5)) {
+                        numHoles += 1;
+                    }
+                    // iterates the number of total spaces for filledDensity
+                    if (highestFound) {
+                        totalSpaces += 1;
                     }
                 }
             }
+            if (!highestFound && (mHBSet || mHASet)) {
+                highestFound = true;
+            }
         }
-        System.out.println("max: " + maxHeightBefore);
 
         // set hightDelta value
-        heightDelta =  maxHeightAfter - maxHeightBefore;
+        int delta = maxHeightBefore - maxHeightAfter;
+        if (delta <= 0) {
+            heightDelta = 0;
+        }
+        else {
+            heightDelta = delta;
+        }   
+
+        // set bumpiness value
+        for (int i = 0; i < 9; i++) {
+            int cur = 22;
+            if (colHeights[i] != null) {
+                cur = colHeights[i];
+            }
+
+            int next = 22;
+            if (colHeights[i+1] != null) {
+                next = colHeights[i+1];
+            }
+            bumpiness += Math.abs(cur - next);
+        }
+        
+        // set filledDensity value
+        filledDensity = filledDensity / (double)totalSpaces;
+        
+    
+        //System.out.println("maxB: " + maxHeightBefore);
+        //System.out.println("maxA: " + maxHeightAfter);
+        //System.out.println("heightDelta: " + heightDelta);
+        //System.out.println("numHoles: " + numHoles);
+        //System.out.println("bumpiness: " + bumpiness);
+        //System.out.println("filledDensity: " + filledDensity);
+        //System.out.println(gameMatrix);
 
         // set values in the return matrix to the collected feature data values
         featureMatrix.set(0, 0, numHoles);
-        featureMatrix.set(0, 1, numFloaing);
-        featureMatrix.set(0, 2, maxHeightBefore);
-        featureMatrix.set(0, 3, maxHeightAfter);
-        featureMatrix.set(0, 4, heightDelta);
-        featureMatrix.set(0, 5, bumpiness);
-        featureMatrix.set(0, 6, filledDensity);
-    
+        featureMatrix.set(0, 1, maxHeightBefore);
+        featureMatrix.set(0, 2, maxHeightAfter);
+        featureMatrix.set(0, 3, heightDelta);
+        featureMatrix.set(0, 4, bumpiness);
+        featureMatrix.set(0, 5, filledDensity);
+
+        System.out.println(featureMatrix);
+        
         // return features data
-        return flattenedImage;
+        return featureMatrix;
     }
 
     /**
@@ -161,7 +244,7 @@ public class TetrisQAgent
         int EXPLORATION_DECAY_STEPS = 1500;
 
         double explore = Math.max(FINAL_EXPLORATION_RATE, INITIAL_EXPLORATION_RATE - turnIdx * (INITIAL_EXPLORATION_RATE - FINAL_EXPLORATION_RATE) / EXPLORATION_DECAY_STEPS);
-        // System.out.println("exploration value: " + explore + ", Number of Explorations: " + NUM_EXPLORED);
+        //System.out.println("exploration value: " + explore + ", Number of Explorations: " + NUM_EXPLORED);
 
         if (this.getRandom().nextDouble() <= explore) { 
             NUM_EXPLORED += 1;
@@ -273,10 +356,10 @@ public class TetrisQAgent
 
         // change to be a more accurate representation of the actual reward, reward should be negative and a more negative value should equate to a worse move
         if (highest != null) {
-            double highestY = (22 - highest.getYCoordinate());
-            // System.out.println("Highest occupied Y-coord: " + highestY + ", empty spaces below: " + emptyBelow);
+            double highestY = (20 - highest.getYCoordinate());
+            //System.out.println("Highest occupied Y-coord: " + highestY + ", empty spaces below: " + emptyBelow);
             reward = (-1.0 / ((highestY) + (emptyBelow))) + game.getScoreThisTurn();
-            // System.out.println("Reward value: " + reward);
+            //System.out.println("Reward value: " + reward);
         }
         return reward;
     }
