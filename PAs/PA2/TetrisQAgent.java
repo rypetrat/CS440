@@ -51,7 +51,7 @@ public class TetrisQAgent
         // this example will create a 3-layer neural network (1 hidden layer)
         // in this example, the input to the neural network is the
         // image of the board unrolled into a giant vector
-        final int inputSize = 6;
+        final int inputSize = 7;
         final int hiddenDim = 2 * inputSize;
         final int outDim = 1;
 
@@ -80,11 +80,10 @@ public class TetrisQAgent
      */
     @Override
     public Matrix getQFunctionInput(final GameView game, final Mino potentialAction) {
-        Matrix flattenedImage = null;
         Matrix gameMatrix = null;
 
         // init feature matrix that will be returned with all the features of importance
-        Matrix featureMatrix = Matrix.zeros(1, 6);
+        Matrix featureMatrix = Matrix.zeros(1, 7);
 
         // init features data (can add or remove certain features to see how it performs w/wo them)
         int numHoles = 0; // number of empty spaces that have a filled space above them
@@ -101,12 +100,14 @@ public class TetrisQAgent
         double filledDensity = 0.0; // ratio of filled spaces to total spaces on the board below the top of the highest block
         int totalSpaces = 0;
         boolean highestFound = false;
-        
+
+        int minoType = -1; // gets the type of the mino to be placed next in int form
+        Mino.MinoType curMino = potentialAction.getType(); 
+        //System.out.println(curMino);
 
         try {
             // Get the grayscale image of the game board
             gameMatrix = game.getGrayscaleImage(potentialAction);
-            flattenedImage  = gameMatrix.flatten(); //temp delete later
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(-1);
@@ -190,17 +191,41 @@ public class TetrisQAgent
             }
             bumpiness += Math.abs(cur - next);
         }
+
+        // set value of minoType
+        if (curMino == Mino.MinoType.valueOf("I")) {
+            minoType = 0;
+        }
+        else if (curMino == Mino.MinoType.valueOf("J")) {
+            minoType = 1;
+        }
+        else if (curMino == Mino.MinoType.valueOf("L")) {
+            minoType = 2;
+        }
+        else if (curMino == Mino.MinoType.valueOf("O")) {
+            minoType = 3;
+        }
+        else if (curMino == Mino.MinoType.valueOf("S")) {
+            minoType = 4;
+        }
+        else if (curMino == Mino.MinoType.valueOf("T")) {
+            minoType = 5;
+        }
+        else if (curMino == Mino.MinoType.valueOf("Z")) {
+            minoType = 6;
+        }
         
         // set filledDensity value
         filledDensity = filledDensity / (double)totalSpaces;
-        
     
+        // prints for each feature data point
         //System.out.println("maxB: " + maxHeightBefore);
         //System.out.println("maxA: " + maxHeightAfter);
         //System.out.println("heightDelta: " + heightDelta);
         //System.out.println("numHoles: " + numHoles);
         //System.out.println("bumpiness: " + bumpiness);
         //System.out.println("filledDensity: " + filledDensity);
+        //System.out.println("minoType: " + minoType);
         //System.out.println(gameMatrix);
 
         // set values in the return matrix to the collected feature data values
@@ -210,6 +235,7 @@ public class TetrisQAgent
         featureMatrix.set(0, 3, heightDelta);
         featureMatrix.set(0, 4, bumpiness);
         featureMatrix.set(0, 5, filledDensity);
+        featureMatrix.set(0, 6, minoType);
 
         System.out.println(featureMatrix);
         
