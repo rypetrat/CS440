@@ -49,22 +49,22 @@ public class TetrisQAgent
 
     @Override
     public Model initQFunction() {
-        // build a single-hidden-layer feedforward network
-        // this example will create a 3-layer neural network (1 hidden layer)
-
+        // can experiment switching between Tahn,ReLU,Sigmoid to see which performs the best or maybe even multiple, i think Tahn + ReLU is our best bet tho
         final int inputSize = 8; // should equal the size of the input row-vector
         final int hiddenDim = (int)Math.pow(inputSize, 2); // increasing this value will allow for more complex patterns to be learned but will also increase the risk of overfitting
         final int outDim = 1; // always keep at 1
-
         Sequential qFunction = new Sequential();
+
+        // hidden layer 1
+        // qFunction.add(new Dense(inputSize, hiddenDim));
+        // qFunction.add(new Tanh());
+
+        // hidden layer 2
         qFunction.add(new Dense(inputSize, hiddenDim));
-
-        // can experiment switching between the following to see which performs the best or maybe even multiple, i think Tahn is our best bet tho
-        qFunction.add(new Tanh());
-        //qFunction.add(new ReLU()); 
-        //qFunction.add(new Sigmoid()); 
+        qFunction.add(new ReLU()); 
+ 
+        // out dimension
         qFunction.add(new Dense(hiddenDim, outDim));
-
         return qFunction;
     }
 
@@ -412,7 +412,7 @@ public class TetrisQAgent
         Coordinate highestCord = null;
         Boolean highestFound = false;
 
-        int lowestEmptyY = -1; // y value of the lowest empty coordinate on the board
+        int heightDelta = -1; // y value of the lowest empty coordinate on the board
         
         int emptyBelow = 0; // counts number of empty spaces below the highest placed mino for each column
         Integer[] colMax = new Integer[10];
@@ -449,9 +449,9 @@ public class TetrisQAgent
                     if(colMax[x] != null) {
                         emptyBelow += 1;
                     }
-                    // set value of lowestEmptyY
-                    if (lowestEmptyY < y) {
-                        lowestEmptyY = y;
+                    // set value of heightDelta to lowest found empty cord y value
+                    if (heightDelta < y) {
+                        heightDelta = y;
                     }
                 }
 
@@ -459,12 +459,12 @@ public class TetrisQAgent
             }
         }
 
-        // set value of highestY
+        // set highestY
         if (highestCord != null) {
             highestOccdY = highestCord.getYCoordinate();
         }
 
-        // set bumpiness value
+        // set bumpiness
         for (int i = 0; i < 9; i++) {
             int cur = 22;
             if (colMax[i] != null) {
@@ -481,29 +481,24 @@ public class TetrisQAgent
         // set ptsEarned
         int ptsEarned = game.getScoreThisTurn();
 
-        // prints for each feature data point
-        //System.out.println("ptsEarned: " + ptsEarned);
-        //System.out.println("highestOccdY: " + highestOccdY);
-        //System.out.println("lowestEmptyY: " + lowestEmptyY);
-        //System.out.println("numFloating: " + numFloating);
-        //System.out.println("emptyBelow: " + emptyBelow);
-        //System.out.println("bumpiness: " + bumpiness);
-        
-        // scalar values associated with each value, and their roughly estimated normalization min/max 
-        //scoreThisTurn (high prio) Scalar: 0.25, min: 0 || max: ?(1)
-        //highestOccdY (high prio)  Scalar: 0.25, min: 2 || max: 22
-        //lowestEmptyY (high prio)  Scalar: 0.25, min: 2 || max: 21
-        //numFloating (med prio)    Scalar: 0.1,  min: 0 || max: 85
-        //emptyBelow (med prio)     Scalar: 0.1,  min: 0 || max: 170
-        //bumpiness (low prio)      Scalar: 0.05, min: 0 || max: 180
+        // set heightDelta
+        heightDelta = heightDelta - highestOccdY;
 
+
+        // prints for each feature data point
+        System.out.println("ptsEarned: " + ptsEarned);
+        System.out.println("highestOccdY: " + highestOccdY);
+        System.out.println("heightDelta: " + heightDelta);
+        System.out.println("numFloating: " + numFloating);
+        System.out.println("emptyBelow: " + emptyBelow);
+        System.out.println("bumpiness: " + bumpiness);
 
         // still doesnt correctly compute, should begin with low negative value and as it builds worse based on our features should become more negative, with better moves making it less negative
-        // i think certain features should subtract from reward as they are good if they are high/low
-        reward = -1 * ((0.25 * ptsEarned) + (0.25 * highestOccdY) + (0.25 * highestOccdY) + (0.1 * numFloating) + (0.1 * emptyBelow) + (0.05 * bumpiness));
+        //reward = -1 * ((0.25 * ptsEarned) + (0.25 * highestOccdY) + (0.25 * highestOccdY) + (0.1 * numFloating) + (0.1 * emptyBelow) + (0.05 * bumpiness));
+        reward = ((5 * ptsEarned) + highestOccdY) - ((emptyBelow * .5) + (heightDelta * .2) + (numFloating * .2) + (bumpiness * .1));
 
-        //System.out.println("Reward value: " + reward);
-        //System.out.println();
+        System.out.println("Reward value: " + reward);
+        System.out.println();
 
         return reward;
     }
