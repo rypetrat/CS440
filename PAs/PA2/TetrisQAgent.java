@@ -295,36 +295,51 @@ public class TetrisQAgent
      * I would recommend devising your own strategy here.
      */
     @Override
-    public Mino getExplorationMove(final GameView game)
-    {
-        int randIdx = this.getRandom().nextInt(game.getFinalMinoPositions().size()); // temp delete later
-
-        // gets the total number of possible positions actions that can be made at the current state
+    public Mino getExplorationMove(final GameView game) {
+        // gets the total number of possible actions that can be made at the current state
         int permutes = game.getFinalMinoPositions().size();
 
-        // init arraylist that will hold each q-value
-        ArrayList<Matrix> results = new ArrayList<>();
+        // init matrix that will hold each q-value
+        Matrix results = Matrix.zeros(1, permutes);
 
         // parses through each possible action and passes that along with the gamestate to getQ to get its q-value from forward
         for (int i = 0; i < permutes; i++) {
-            Matrix cur = getQFunctionInput(game, game.getFinalMinoPositions().get(i));
-            //results.add(Module.forward(cur)); // errors out bc is an abstract class
-        }
-
-        //determine smallest q-value
-        int minInd = -1;
-        double minVal = 0;
-        for (int j = 0; j < results.size(); j++) {
-            if (results.get(j).get(0,0) < minVal) {
-                minInd = j;
-                minVal = results.get(j).get(0,0);
+            try {
+                Matrix cur = this.getQFunctionInput(game, game.getFinalMinoPositions().get(i)); // get the row-vector for each permute to input into the NN
+                results.set(0, i, Math.exp(this.initQFunction().forward(cur).get(0, 0))); // exponentiate the returned q-value and set in results
+            } catch (Exception e) {
+                e.printStackTrace();
+                System.exit(-1);
             }
         }
 
-        //returns smallest q-value action
-        //return game.getFinalMinoPositions().get(minInd);
+        // sum all collected q-values from results matrix to qtotal
+        double qTotal = results.sum().get(0, 0);
+
+        // set summation value to a 1x1 matrix 
+        Matrix denom = Matrix.zeros(1, 1);
+        denom.set(0, 0, qTotal);
+
+        // ediv each value by the summation value
+        Matrix finalResults = null;
+        try {
+            finalResults = results.ediv(denom);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
         
-        return game.getFinalMinoPositions().get(randIdx);
+
+        // find and return smallest value in finalResults
+        int minInd = -1;
+        double minVal = Double.POSITIVE_INFINITY;
+        for (int j = 0; j < permutes; j++) {
+            if (finalResults.get(0, j) < minVal) {
+                minVal = finalResults.get(0, j);
+                minInd = j;
+            }
+        }
+        return game.getFinalMinoPositions().get(minInd);
     }
 
     /**
