@@ -6,8 +6,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.Arrays;
+import java.util.ArrayList;
 
-import edu.bu.battleship.utils.Coordinate;
+
 // JAVA PROJECT IMPORTS
 import edu.bu.tetris.agents.QAgent;
 import edu.bu.tetris.agents.TrainerAgent.GameCounter;
@@ -16,6 +17,8 @@ import edu.bu.tetris.game.Game.GameView;
 import edu.bu.tetris.game.minos.Mino;
 import edu.bu.tetris.linalg.Matrix;
 import edu.bu.tetris.nn.Model;
+import edu.bu.tetris.nn.Module;
+import edu.bu.tetris.utils.Coordinate;
 import edu.bu.tetris.nn.LossFunction;
 import edu.bu.tetris.nn.Optimizer;
 import edu.bu.tetris.nn.models.Sequential;
@@ -294,8 +297,33 @@ public class TetrisQAgent
     @Override
     public Mino getExplorationMove(final GameView game)
     {
-        // god help us idk, will random guess, honestly doesnt seem like too bad a plan on its own
-        int randIdx = this.getRandom().nextInt(game.getFinalMinoPositions().size());
+        int randIdx = this.getRandom().nextInt(game.getFinalMinoPositions().size()); // temp delete later
+
+        // gets the total number of possible positions actions that can be made at the current state
+        int permutes = game.getFinalMinoPositions().size();
+
+        // init arraylist that will hold each q-value
+        ArrayList<Matrix> results = new ArrayList<>();
+
+        // parses through each possible action and passes that along with the gamestate to getQ to get its q-value from forward
+        for (int i = 0; i < permutes; i++) {
+            Matrix cur = getQFunctionInput(game, game.getFinalMinoPositions().get(i));
+            //results.add(Module.forward(cur)); // errors out bc is an abstract class
+        }
+
+        //determine smallest q-value
+        int minInd = -1;
+        double minVal = 0;
+        for (int j = 0; j < results.size(); j++) {
+            if (results.get(j).get(0,0) < minVal) {
+                minInd = j;
+                minVal = results.get(j).get(0,0);
+            }
+        }
+
+        //returns smallest q-value action
+        //return game.getFinalMinoPositions().get(minInd);
+        
         return game.getFinalMinoPositions().get(randIdx);
     }
 
