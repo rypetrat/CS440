@@ -103,7 +103,7 @@ public class TetrisQAgent
 
         int emptyBelow = 0; // counts number of empty spaces below the highest placed mino for each column
 
-        int lowestEmptyY = -1; // y value of the lowest empty coordinate on the board
+        int lowHighDelta = -1; // gets the delta between the highest occupied and lowest empty spaces
 
         int minoType = -1; // gets the type of the mino to be placed next in int form
         Mino.MinoType curMino = potentialAction.getType(); 
@@ -156,9 +156,9 @@ public class TetrisQAgent
                     if(colHeights[x] != null) {
                         emptyBelow += 1;
                     }
-                    // set value of lowestEmptyY
-                    if (lowestEmptyY < y) {
-                        lowestEmptyY = y;
+                    // set value of lowHighDelta to the lowest occupied empty space
+                    if (lowHighDelta < y) {
+                        lowHighDelta = y;
                     }
                     
                 }
@@ -187,6 +187,10 @@ public class TetrisQAgent
             }
             bumpiness += Math.abs(cur - next);
         }
+
+        // set lowHighDelta
+        lowHighDelta = maxHeightAfter - lowHighDelta;
+
 
         // set value of minoType
         if (curMino == Mino.MinoType.valueOf("I")) {
@@ -229,7 +233,7 @@ public class TetrisQAgent
         featureMatrix.set(0, 3, heightDelta);
         featureMatrix.set(0, 4, bumpiness);
         featureMatrix.set(0, 5, emptyBelow);
-        featureMatrix.set(0, 6, lowestEmptyY);
+        featureMatrix.set(0, 6, lowHighDelta);
         featureMatrix.set(0, 7, minoType);
 
         //System.out.println(featureMatrix);
@@ -267,12 +271,12 @@ public class TetrisQAgent
 
         // calculates explore rate value
         double explore = Math.max(FINAL_EXPLORATION_RATE, INITIAL_EXPLORATION_RATE - turnIdx * (INITIAL_EXPLORATION_RATE - FINAL_EXPLORATION_RATE) / EXPLORATION_DECAY_STEPS);
-        // System.out.println("exploration value: " + explore);
+        //System.out.println("exploration value: " + explore);
 
         // generates random number between 0-1 and if less than our explore value we ignore the policy
         if (this.getRandom().nextDouble() <= explore) { 
             NUM_EXPLORED += 1;
-            // System.out.println("Policy ignored.");
+            //System.out.println("Policy ignored.");
             return true;
         }
         return false;
@@ -431,16 +435,17 @@ public class TetrisQAgent
             bumpiness += Math.abs(cur - next);
         }
 
+        // set ptsEarned
+        int ptsEarned = game.getScoreThisTurn();
+
         // prints for each feature data point
-        //System.out.println("scoreThisTurn: " + game.getScoreThisTurn());
-        System.out.println("highestOccdY: " + highestOccdY);
+        //System.out.println("ptsEarned: " + ptsEarned);
+        //System.out.println("highestOccdY: " + highestOccdY);
         //System.out.println("lowestEmptyY: " + lowestEmptyY);
         //System.out.println("numFloating: " + numFloating);
         //System.out.println("emptyBelow: " + emptyBelow);
         //System.out.println("bumpiness: " + bumpiness);
         
-        
-
         // scalar values associated with each value, and their roughly estimated normalization min/max 
         //scoreThisTurn (high prio) Scalar: 0.25, min: 0 || max: ?(1)
         //highestOccdY (high prio)  Scalar: 0.25, min: 2 || max: 22
@@ -449,20 +454,13 @@ public class TetrisQAgent
         //emptyBelow (med prio)     Scalar: 0.1,  min: 0 || max: 170
         //bumpiness (low prio)      Scalar: 0.05, min: 0 || max: 180
 
-        // normalize each feature
-        double normScore = (double)game.getScoreThisTurn() / 1;
-        double normHigh = (double)highestOccdY / 22;
-        double normLow = (double)lowestEmptyY / 21;
-        double normFloat = (double)numFloating / 85;
-        double normEmpty = (double)emptyBelow / 170;
-        double normBump = (double)bumpiness / 180;
 
         // still doesnt correctly compute, should begin with low negative value and as it builds worse based on our features should become more negative, with better moves making it less negative
         // i think certain features should subtract from reward as they are good if they are high/low
-        reward = -1 * ((0.25 * normScore) + (0.25 * normHigh) + (0.25 * normLow) + (0.1 * normFloat) + (0.1 * normEmpty) + (0.05 * normBump));
+        reward = -1 * ((0.25 * ptsEarned) + (0.25 * highestOccdY) + (0.25 * highestOccdY) + (0.1 * numFloating) + (0.1 * emptyBelow) + (0.05 * bumpiness));
 
-        System.out.println("Reward value: " + reward);
-        System.out.println();
+        //System.out.println("Reward value: " + reward);
+        //System.out.println();
 
         return reward;
     }
