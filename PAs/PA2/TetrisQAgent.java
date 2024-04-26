@@ -494,23 +494,21 @@ public class TetrisQAgent
         if (filledDensity != 0.0) {
             filledDensity = (filledDensity / totalDensity);
         }
-        
 
         // prints for each feature data point
-        System.out.println("ptsEarned: " + ptsEarned);
-        System.out.println("highestOccdY: " + highestOccdY);
-        System.out.println("filledDensity: " + filledDensity);
-        System.out.println("emptyBelow: " + emptyBelow);
+        //System.out.println("ptsEarned: " + ptsEarned);
+        //System.out.println("highestOccdY: " + highestOccdY);
+        //System.out.println("filledDensity: " + filledDensity);
+        //System.out.println("emptyBelow: " + emptyBelow);
         //System.out.println("heightDelta: " + heightDelta);
         //System.out.println("numFloating: " + numFloating);
-        System.out.println("bumpiness: " + bumpiness);
-        
+        //System.out.println("bumpiness: " + bumpiness);
 
         // calculate reward value, highly weights getting any points
         reward = ((10 * ptsEarned) + highestOccdY) - (Math.pow(1-filledDensity, 4) * ((emptyBelow * .7) + (bumpiness * .3)));
 
-        System.out.println("Reward value: " + reward);
-        System.out.println();
+        //System.out.println("Reward value: " + reward);
+        //System.out.println();
 
         return reward;
     }
