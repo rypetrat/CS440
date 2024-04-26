@@ -5,8 +5,7 @@ package src.pas.tetris.agents;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
-import java.util.Arrays;
-import java.util.ArrayList;
+
 
 
 // JAVA PROJECT IMPORTS
@@ -35,7 +34,6 @@ public class TetrisQAgent
 {
 
     public static final double EXPLORATION_PROB = 0.05;
-    public static int NUM_EXPLORED = 1;
 
     private Random random;
 
@@ -59,7 +57,7 @@ public class TetrisQAgent
         // qFunction.add(new Dense(inputSize, hiddenDim));
         // qFunction.add(new Tanh());
 
-        // hidden layer 2
+        // hidden layer 1
         qFunction.add(new Dense(inputSize, hiddenDim));
         qFunction.add(new ReLU()); 
  
@@ -122,7 +120,6 @@ public class TetrisQAgent
         // parses through grayscale image matrix to collect feature data
         for (int y = 0; y < gameMatrix.getShape().getNumRows(); y++ ) {
             for (int x = 0; x < gameMatrix.getShape().getNumCols(); x++) {
-
                 // already placed piece coordinate
                 if (gameMatrix.get(y, x) == 0.5) {
                     // sets maxHeightBefore
@@ -268,7 +265,7 @@ public class TetrisQAgent
         int gameIdx = (int)gameCounter.getCurrentGameIdx();
 
         // fine tune for testing
-        double INITIAL_EXPLORATION_RATE = 0.6 - ((gameIdx * 0.01));  // scale the gameIdx's coef to total number of training games
+        double INITIAL_EXPLORATION_RATE = 0.8 - ((gameIdx * 0.01));  // scale the gameIdx's coef to total number of training games
         double FINAL_EXPLORATION_RATE = 0.01; // explore rate will not go lower than this value
         int EXPLORATION_DECAY_STEPS = 500; // higher number = slower decay
 
@@ -278,7 +275,6 @@ public class TetrisQAgent
 
         // generates random number between 0-1 and if less than our explore value we ignore the policy
         if (this.getRandom().nextDouble() <= explore) { 
-            NUM_EXPLORED += 1;
             //System.out.println("Policy ignored.");
             return true;
         }
@@ -328,7 +324,6 @@ public class TetrisQAgent
             e.printStackTrace();
             System.exit(-1);
         }
-        
 
         // find and return smallest value in finalResults
         int minInd = -1;
@@ -412,7 +407,7 @@ public class TetrisQAgent
         Coordinate highestCord = null;
         Boolean highestFound = false;
 
-        int heightDelta = -1; // y value of the lowest empty coordinate on the board
+        int heightDelta = 0; // y value of the lowest empty coordinate on the board
         
         int emptyBelow = 0; // counts number of empty spaces below the highest placed mino for each column
         Integer[] colMax = new Integer[10];
@@ -421,16 +416,17 @@ public class TetrisQAgent
 
         int bumpiness = 0; // sum of the absolute differences in height between adjacent columns
 
+        double filledDensity = 0.0; // proportion of filled spaces to total spaces below the highest occupied space
+        int totalDensity = 0;
+
         // parse through board to collect feature data
         for (int y = 0; y < 22; y++) {
             for (int x = 0; x < 10; x++) {
-
                 // occupied coordinate
                 if (b.isCoordinateOccupied(x, y)) { 
                     // get the highest coordinate position
-                    if (highestFound == false) {
+                    if (highestFound == false && highestCord == null) {
                         highestCord = new Coordinate(x, y);
-                        highestFound = true;
                     }
                     // sets the max for the current column
                     if (colMax[x] == null) {
@@ -439,6 +435,11 @@ public class TetrisQAgent
                     // count number of floating coordindates
                     if (y < 21 && !b.isCoordinateOccupied(x, y+1)) {
                         numFloating += 1;
+                    }
+                    // count all filled coordinates below the highest and incriment total coordinates
+                    if (highestFound == true) {
+                        filledDensity += 1;
+                        totalDensity += 1;
                     }
 
                 }
@@ -453,9 +454,14 @@ public class TetrisQAgent
                     if (heightDelta < y) {
                         heightDelta = y;
                     }
+                    // count all total coordinates below the highest for total
+                    if (highestFound == true) {
+                        totalDensity += 1;
+                    }
                 }
-
-                
+            }
+            if (highestCord != null) {
+                highestFound = true;
             }
         }
 
@@ -484,18 +490,24 @@ public class TetrisQAgent
         // set heightDelta
         heightDelta = heightDelta - highestOccdY;
 
+        // set filledDensity
+        if (filledDensity != 0.0) {
+            filledDensity = (filledDensity / totalDensity);
+        }
+        
 
         // prints for each feature data point
         System.out.println("ptsEarned: " + ptsEarned);
         System.out.println("highestOccdY: " + highestOccdY);
-        System.out.println("heightDelta: " + heightDelta);
-        System.out.println("numFloating: " + numFloating);
+        System.out.println("filledDensity: " + filledDensity);
         System.out.println("emptyBelow: " + emptyBelow);
+        //System.out.println("heightDelta: " + heightDelta);
+        //System.out.println("numFloating: " + numFloating);
         System.out.println("bumpiness: " + bumpiness);
+        
 
-        // still doesnt correctly compute, should begin with low negative value and as it builds worse based on our features should become more negative, with better moves making it less negative
-        //reward = -1 * ((0.25 * ptsEarned) + (0.25 * highestOccdY) + (0.25 * highestOccdY) + (0.1 * numFloating) + (0.1 * emptyBelow) + (0.05 * bumpiness));
-        reward = ((5 * ptsEarned) + highestOccdY) - ((emptyBelow * .5) + (heightDelta * .2) + (numFloating * .2) + (bumpiness * .1));
+        // calculate reward value, highly weights getting any points
+        reward = ((10 * ptsEarned) + highestOccdY) - (Math.pow(1-filledDensity, 4) * ((emptyBelow * .7) + (bumpiness * .3)));
 
         System.out.println("Reward value: " + reward);
         System.out.println();
