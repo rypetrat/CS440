@@ -265,7 +265,7 @@ public class TetrisQAgent
         int gameIdx = (int)gameCounter.getCurrentGameIdx();
 
         // fine tune for testing
-        double INITIAL_EXPLORATION_RATE = 0.8 - ((gameIdx * 0.01));  // scale the gameIdx's coef to total number of training games
+        double INITIAL_EXPLORATION_RATE = 0.8 - ((gameIdx * 0.002));  // scale the gameIdx's coef to total number of training games
         double FINAL_EXPLORATION_RATE = 0.01; // explore rate will not go lower than this value
         int EXPLORATION_DECAY_STEPS = 500; // higher number = slower decay
 
@@ -326,7 +326,7 @@ public class TetrisQAgent
         }
 
         // find and return smallest value in finalResults
-        int minInd = -1;
+        int minInd = 0;
         double minVal = Double.POSITIVE_INFINITY;
         for (int j = 0; j < permutes; j++) {
             if (finalResults.get(0, j) < minVal) {
