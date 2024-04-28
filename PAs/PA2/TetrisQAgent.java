@@ -48,8 +48,8 @@ public class TetrisQAgent
     @Override
     public Model initQFunction() {
         // can experiment switching between Tahn,ReLU,Sigmoid to see which performs the best or maybe even multiple, i think Tahn + ReLU is our best bet tho
-        final int inputSize = 8; // should equal the size of the input row-vector
-        final int hiddenDim = (int)Math.pow(inputSize, 2); // increasing this value will allow for more complex patterns to be learned but will also increase the risk of overfitting
+        final int inputSize = 6; // should equal the size of the input row-vector
+        final int hiddenDim = 128; // increasing this value will allow for more complex patterns to be learned but will also increase the risk of overfitting
         final int outDim = 1; // always keep at 1
         Sequential qFunction = new Sequential();
 
@@ -86,7 +86,7 @@ public class TetrisQAgent
         Matrix gameMatrix = null; // init matrix var
 
         // init feature matrix that will be returned with all the features of importance
-        Matrix featureMatrix = Matrix.zeros(1, 8);
+        Matrix featureMatrix = Matrix.zeros(1, 6);
 
         // init features data (can add or remove certain features to see how it performs w/wo them)
         int numHoles = 0; // number of empty spaces that have a filled space below them
@@ -227,14 +227,14 @@ public class TetrisQAgent
         
 
         // set values in the return matrix to the collected feature data values
-        featureMatrix.set(0, 0, numHoles);
-        featureMatrix.set(0, 1, maxHeightBefore);
-        featureMatrix.set(0, 2, maxHeightAfter);
-        featureMatrix.set(0, 3, heightDelta);
-        featureMatrix.set(0, 4, bumpiness);
-        featureMatrix.set(0, 5, emptyBelow);
-        featureMatrix.set(0, 6, lowHighDelta);
-        featureMatrix.set(0, 7, minoType);
+        //featureMatrix.set(0, 0, numHoles);
+        //featureMatrix.set(0, 1, maxHeightBefore);
+        featureMatrix.set(0, 0, maxHeightAfter);
+        featureMatrix.set(0, 1, heightDelta);
+        featureMatrix.set(0, 2, bumpiness);
+        featureMatrix.set(0, 3, emptyBelow);
+        featureMatrix.set(0, 4, lowHighDelta);
+        featureMatrix.set(0, 5, minoType);
 
         //System.out.println(featureMatrix);
         //System.out.println(gameMatrix);
@@ -265,9 +265,9 @@ public class TetrisQAgent
         int gameIdx = (int)gameCounter.getCurrentGameIdx();
 
         // fine tune for testing
-        double INITIAL_EXPLORATION_RATE = 0.8 - ((gameIdx * 0.002));  // scale the gameIdx's coef to total number of training games
+        double INITIAL_EXPLORATION_RATE = 0.99 - ((gameIdx * 0.00001));  // scale the gameIdx's coef to total number of training games
         double FINAL_EXPLORATION_RATE = 0.01; // explore rate will not go lower than this value
-        int EXPLORATION_DECAY_STEPS = 500; // higher number = slower decay
+        int EXPLORATION_DECAY_STEPS = 10000; // higher number = slower decay
 
         // calculates explore rate value
         double explore = Math.max(FINAL_EXPLORATION_RATE, INITIAL_EXPLORATION_RATE - turnIdx * (INITIAL_EXPLORATION_RATE - FINAL_EXPLORATION_RATE) / EXPLORATION_DECAY_STEPS);
