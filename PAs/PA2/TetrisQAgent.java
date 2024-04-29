@@ -217,10 +217,11 @@ public class TetrisQAgent
     public boolean shouldExplore(final GameView game, final GameCounter gameCounter) {
         // gets turn and game ID's
         int turnIdx = (int)gameCounter.getCurrentMoveIdx();
+        int phaseIdx = (int)gameCounter.getCurrentPhaseIdx();
         int gameIdx = (int)gameCounter.getCurrentGameIdx();
 
         // fine tune for testing
-        double INITIAL_EXPLORATION_RATE = 0.99 - ((gameIdx * 0.0015));  // scale the gameIdx's coef to total number of training games
+        double INITIAL_EXPLORATION_RATE = 0.99 - (((gameIdx + (phaseIdx * 100)) * 0.00001));  // scale the gameIdx's coef to total number of training games
         double FINAL_EXPLORATION_RATE = 0.01; // explore rate will not go lower than this value
         int EXPLORATION_DECAY_STEPS = 10000; // higher number = slower decay
 
