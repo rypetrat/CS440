@@ -48,14 +48,11 @@ public class TetrisQAgent
     @Override
     public Model initQFunction() {
         // can experiment switching between Tahn,ReLU,Sigmoid to see which performs the best or maybe even multiple, i think Tahn + ReLU is our best bet tho
-        final int inputSize = 6; // should equal the size of the input row-vector
-        final int hiddenDim = 128; // increasing this value will allow for more complex patterns to be learned but will also increase the risk of overfitting
+        final int inputSize = 5; // should equal the size of the input row-vector
+        final int hiddenDim = (int)Math.pow(inputSize, 2); // increasing this value will allow for more complex patterns to be learned but will also increase the risk of overfitting
         final int outDim = 1; // always keep at 1
+        
         Sequential qFunction = new Sequential();
-
-        // hidden layer 1
-        // qFunction.add(new Dense(inputSize, hiddenDim));
-        // qFunction.add(new Tanh());
 
         // hidden layer 1
         qFunction.add(new Dense(inputSize, hiddenDim));
@@ -86,26 +83,19 @@ public class TetrisQAgent
         Matrix gameMatrix = null; // init matrix var
 
         // init feature matrix that will be returned with all the features of importance
-        Matrix featureMatrix = Matrix.zeros(1, 6);
+        Matrix featureMatrix = Matrix.zeros(1, 5);
 
         // init features data (can add or remove certain features to see how it performs w/wo them)
-        int numHoles = 0; // number of empty spaces that have a filled space below them
-
-        int maxHeightBefore = 22; // height of the tallest column without accounting for the current mino placement, gives distance from the top
-        boolean mHBSet = false;
-
-        int maxHeightAfter = 22; // height of the tallest column accounting for the current mino placement, gives distance from the top
-        boolean mHASet = false;
-
-        int heightDelta = 0; // gives the delta in max height for the current mino placement
+        int maxHeight = 22; // height of the tallest column accounting for the current mino placement, gives distance from the top
+        boolean heightSet = false;
         
         int bumpiness = 0; // sum of the absolute differences in height between adjacent columns
         Integer[] colHeights = new Integer[10];
 
         int emptyBelow = 0; // counts number of empty spaces below the highest placed mino for each column
 
-        int lowHighDelta = -1; // gets the delta between the highest occupied and lowest empty spaces
-
+        int fullRows = 0; // counts the number of full rows that will get cleared
+        
         int minoType = -1; // gets the type of the mino to be placed next in int form
         Mino.MinoType curMino = potentialAction.getType(); 
 
@@ -119,60 +109,35 @@ public class TetrisQAgent
 
         // parses through grayscale image matrix to collect feature data
         for (int y = 0; y < gameMatrix.getShape().getNumRows(); y++ ) {
+            boolean isFull = true; // resets for each row
             for (int x = 0; x < gameMatrix.getShape().getNumCols(); x++) {
                 // already placed piece coordinate
-                if (gameMatrix.get(y, x) == 0.5) {
-                    // sets maxHeightBefore
-                    if (mHBSet == false) {
-                        maxHeightBefore = y;
-                        mHBSet = true;
+                if (gameMatrix.get(y, x) == 0.5 || gameMatrix.get(y, x) == 1.0) {
+                    // sets maxHeight
+                    if (heightSet == false) {
+                        maxHeight = y;
+                        heightSet = true;
                     }
                     // sets max height for this column for bumpiness
                     if (colHeights[x] == null) {
                         colHeights[x] = y;
                     }
-                }
-
-                // current piece placement coordinate
-                if (gameMatrix.get(y, x) == 1.0) {
-                    // sets maxHeightAfter
-                    if (mHASet == false) {
-                        maxHeightAfter = y;
-                        mHASet = true;
-                    }
-                    // sets max height for this column for bumpiness
-                    if (colHeights[x] == null) {
-                        colHeights[x] = y;
+                    // iterate fullRow when we get to the end of the row and isFull is still true
+                    if (x == 9 && isFull == true) {
+                        fullRows += 1;
                     }
                 }
-
                 // empty coordinate
-                if (gameMatrix.get(y, x) == 0.0) {
-                    // iterates numHoles when coordinate above is filled
-                    if (y > 0 && (gameMatrix.get(y-1, x) == 1.0 || gameMatrix.get(y-1, x) == 0.5)) {
-                        numHoles += 1;
-                    }
+                else if (gameMatrix.get(y, x) == 0.0) {
                     // iterates empty below when some cord above the current empty cord is filled
                     if(colHeights[x] != null) {
                         emptyBelow += 1;
                     }
-                    // set value of lowHighDelta to the lowest occupied empty space
-                    if (lowHighDelta < y) {
-                        lowHighDelta = y;
-                    }
-                    
+                    // if we find any open hole in the row then this row is not full
+                    isFull = false;
                 }
             }
         }
-
-        // set hightDelta value
-        int delta = maxHeightBefore - maxHeightAfter;
-        if (delta <= 0) {
-            heightDelta = 0;
-        }
-        else {
-            heightDelta = delta;
-        }   
 
         // set bumpiness value
         for (int i = 0; i < 9; i++) {
@@ -187,10 +152,6 @@ public class TetrisQAgent
             }
             bumpiness += Math.abs(cur - next);
         }
-
-        // set lowHighDelta
-        lowHighDelta = maxHeightAfter - lowHighDelta;
-
 
         // set value of minoType
         if (curMino == Mino.MinoType.valueOf("I")) {
@@ -216,25 +177,19 @@ public class TetrisQAgent
         }
         
         // prints for each feature data point
-        //System.out.println("numHoles: " + numHoles);
-        //System.out.println("maxB: " + maxHeightBefore);
-        //System.out.println("maxA: " + maxHeightAfter);
-        //System.out.println("heightDelta: " + heightDelta);
+        //System.out.println("maxHeight: " + maxHeight);
         //System.out.println("bumpiness: " + bumpiness);
         //System.out.println("emptyBelow: " + emptyBelow);
-        //System.out.println("lowestEmptyY: " + lowestEmptyY);
+        //System.out.println("fullRows: " + fullRows);
         //System.out.println("minoType: " + minoType);
         
 
         // set values in the return matrix to the collected feature data values
-        //featureMatrix.set(0, 0, numHoles);
-        //featureMatrix.set(0, 1, maxHeightBefore);
-        featureMatrix.set(0, 0, maxHeightAfter);
-        featureMatrix.set(0, 1, heightDelta);
-        featureMatrix.set(0, 2, bumpiness);
-        featureMatrix.set(0, 3, emptyBelow);
-        featureMatrix.set(0, 4, lowHighDelta);
-        featureMatrix.set(0, 5, minoType);
+        featureMatrix.set(0, 0, maxHeight);
+        featureMatrix.set(0, 1, bumpiness);
+        featureMatrix.set(0, 2, emptyBelow);
+        featureMatrix.set(0, 3, fullRows);
+        featureMatrix.set(0, 4, minoType);
 
         //System.out.println(featureMatrix);
         //System.out.println(gameMatrix);
@@ -265,7 +220,7 @@ public class TetrisQAgent
         int gameIdx = (int)gameCounter.getCurrentGameIdx();
 
         // fine tune for testing
-        double INITIAL_EXPLORATION_RATE = 0.99 - ((gameIdx * 0.00001));  // scale the gameIdx's coef to total number of training games
+        double INITIAL_EXPLORATION_RATE = 0.99 - ((gameIdx * 0.0015));  // scale the gameIdx's coef to total number of training games
         double FINAL_EXPLORATION_RATE = 0.01; // explore rate will not go lower than this value
         int EXPLORATION_DECAY_STEPS = 10000; // higher number = slower decay
 
@@ -401,47 +356,36 @@ public class TetrisQAgent
     @Override
     public double getReward(final GameView game) {
         Board b = game.getBoard(); // current gamestate board
-        double reward = 0.0; // final reward value for the state
+        double reward = 0.0; // final reward value for the current state
 
-        int highestOccdY = 22; // y value of the highest occupied coordinate on the board
+        int maxHeight = 22; // y value of the highest occupied coordinate on the board
         Coordinate highestCord = null;
         Boolean highestFound = false;
-
-        int heightDelta = 0; // y value of the lowest empty coordinate on the board
         
         int emptyBelow = 0; // counts number of empty spaces below the highest placed mino for each column
         Integer[] colMax = new Integer[10];
 
-        int numFloating = 0; // counts number of occupied spaces with an empty space below them
-
         int bumpiness = 0; // sum of the absolute differences in height between adjacent columns
 
-        double filledDensity = 0.0; // proportion of filled spaces to total spaces below the highest occupied space
-        int totalDensity = 0;
+        int clearedRows = 0; // number of fully empty rows below the highest occupied position signifying the row was full and cleared
+        
 
         // parse through board to collect feature data
         for (int y = 0; y < 22; y++) {
+            boolean isClear = true;
             for (int x = 0; x < 10; x++) {
                 // occupied coordinate
                 if (b.isCoordinateOccupied(x, y)) { 
                     // get the highest coordinate position
-                    if (highestFound == false && highestCord == null) {
+                    if (highestFound == false) {
                         highestCord = new Coordinate(x, y);
+                        highestFound = true;
                     }
                     // sets the max for the current column
                     if (colMax[x] == null) {
                         colMax[x] = y;
                     }
-                    // count number of floating coordindates
-                    if (y < 21 && !b.isCoordinateOccupied(x, y+1)) {
-                        numFloating += 1;
-                    }
-                    // count all filled coordinates below the highest and incriment total coordinates
-                    if (highestFound == true) {
-                        filledDensity += 1;
-                        totalDensity += 1;
-                    }
-
+                    isClear = false;
                 }
 
                 // empty coordinate
@@ -450,13 +394,8 @@ public class TetrisQAgent
                     if(colMax[x] != null) {
                         emptyBelow += 1;
                     }
-                    // set value of heightDelta to lowest found empty cord y value
-                    if (heightDelta < y) {
-                        heightDelta = y;
-                    }
-                    // count all total coordinates below the highest for total
-                    if (highestFound == true) {
-                        totalDensity += 1;
+                    if(x == 9 && isClear == true && highestFound == true) {
+                        clearedRows += 1;
                     }
                 }
             }
@@ -465,9 +404,9 @@ public class TetrisQAgent
             }
         }
 
-        // set highestY
+        // set maxHeight
         if (highestCord != null) {
-            highestOccdY = highestCord.getYCoordinate();
+            maxHeight = highestCord.getYCoordinate();
         }
 
         // set bumpiness
@@ -487,25 +426,16 @@ public class TetrisQAgent
         // set ptsEarned
         int ptsEarned = game.getScoreThisTurn();
 
-        // set heightDelta
-        heightDelta = heightDelta - highestOccdY;
-
-        // set filledDensity
-        if (filledDensity != 0.0) {
-            filledDensity = (filledDensity / totalDensity);
-        }
 
         // prints for each feature data point
         //System.out.println("ptsEarned: " + ptsEarned);
-        //System.out.println("highestOccdY: " + highestOccdY);
-        //System.out.println("filledDensity: " + filledDensity);
+        //System.out.println("clearedRows: " + clearedRows);
+        //System.out.println("maxHeight: " + maxHeight);
         //System.out.println("emptyBelow: " + emptyBelow);
-        //System.out.println("heightDelta: " + heightDelta);
-        //System.out.println("numFloating: " + numFloating);
         //System.out.println("bumpiness: " + bumpiness);
 
-        // calculate reward value, highly weights getting any points
-        reward = ((10 * ptsEarned) + highestOccdY) - (Math.pow(1-filledDensity, 4) * ((emptyBelow * .7) + (bumpiness * .3)));
+        // calculate reward value, highly weights getting any points 
+        reward = ((50 * ptsEarned) + (10 * clearedRows)) - ((bumpiness + emptyBelow) / (double)maxHeight);
 
         //System.out.println("Reward value: " + reward);
         //System.out.println();
