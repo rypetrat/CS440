@@ -34,7 +34,7 @@ Running:
 
 javac -cp "./lib/*;." @tetris.srcs
 
-java -cp "./lib/*;." edu.bu.tetris.Main
+-q src.pas.tetris.agents.TetrisQAgent -p 5000 -t 100 -v 50 -n 0.01 -b 5000
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
